@@ -16,6 +16,9 @@ export function useLogin() {
   return useMutation({
     mutationFn: (body: { username: string; password: string; captcha_id: string; captcha_code: string }) =>
       http<Token>({ url: "/api/auth/login", method: "POST", data: body }),
-    onSuccess: (t) => localStorage.setItem("token", t.access_token),
+    onSuccess: (t) => {
+      localStorage.setItem("token", t.access_token);
+      localStorage.setItem("roles", JSON.stringify(t.roles));
+    },
   });
 }

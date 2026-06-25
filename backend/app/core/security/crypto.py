@@ -6,6 +6,7 @@
 
 ⚠ demo 后端不安全，绝不能用于生产。生产务必 `uv sync --extra crypto` 装 tongsuopy。
 """
+
 from __future__ import annotations
 
 import base64
@@ -18,10 +19,13 @@ import time
 import warnings
 
 # ---- 后端选择 ----------------------------------------------------------------
-try:  # 生产：真实国密
+try:  # 生产：真实国密（tongsuopy 1.0.x）
     from tongsuopy.crypto import hashes as _ts_hashes  # type: ignore
-    from tongsuopy.crypto.asymmetric import sm2 as _ts_sm2  # type: ignore
-    from tongsuopy.crypto.ciphers import SM4, modes  # type: ignore
+    from tongsuopy.crypto import serialization as _ts_ser  # type: ignore
+    from tongsuopy.crypto.asymciphers import ec as _ts_ec  # type: ignore
+    from tongsuopy.crypto.ciphers import Cipher as _TsCipher  # type: ignore
+    from tongsuopy.crypto.ciphers import modes  # type: ignore
+    from tongsuopy.crypto.ciphers.algorithms import SM4  # type: ignore
 
     _BACKEND = "tongsuopy"
 except Exception:  # 开发/CI：demo 降级
@@ -36,6 +40,13 @@ except Exception:  # 开发/CI：demo 降级
 
 def backend() -> str:
     return _BACKEND
+
+
+def public_key_pem() -> str | None:
+    """SM2 公钥（PEM），下发给客户端做传输信封加密；demo 无非对称密钥时返回 None。"""
+    if _BACKEND == "tongsuopy":
+        return os.getenv("SM2_PUBLIC_KEY")
+    return None
 
 
 # ---- 口令哈希：PBKDF2-HMAC-SM3（10 万次）------------------------------------
@@ -69,6 +80,7 @@ def verify_password(password: str, stored: str) -> bool:
 
 def _pbkdf2_sm3(pw: bytes, salt: bytes, iters: int) -> bytes:
     """用 SM3 作 PRF 的 PBKDF2（仅 tongsuopy 后端）。"""
+
     def sm3(data: bytes) -> bytes:
         h = _ts_hashes.Hash(_ts_hashes.SM3())
         h.update(data)
@@ -98,7 +110,14 @@ def _pbkdf2_sm3(pw: bytes, salt: bytes, iters: int) -> bytes:
 
 # ---- 敏感字段加密：SM4-CBC ---------------------------------------------------
 def _field_key() -> bytes:
-    raw = os.getenv("SM4_KEY", "0123456789abcdef")  # 16B；生产从 env/KMS 注入
+    raw = os.getenv("SM4_KEY")  # 16B；生产从 env/KMS 注入
+    if raw is None:
+        # 生产(真实国密)缺密钥时 fail-fast，绝不以硬编码常量静默加密敏感字段
+        if _BACKEND == "tongsuopy":
+            raise RuntimeError(
+                "缺少 SM4_KEY：拒绝以硬编码默认密钥加密敏感字段（生产请注入 SM4_KEY）"
+            )
+        raw = "0123456789abcdef"  # demo 后端仅本地/CI
     return raw.encode()[:16].ljust(16, b"\x00")
 
 
@@ -108,8 +127,8 @@ def encrypt_field(plaintext: str | None) -> str | None:
     data = plaintext.encode()
     iv = secrets.token_bytes(16)
     if _BACKEND == "tongsuopy":
-        c = SM4(_field_key())
-        enc = c.encryptor(modes.CBC(iv)) if hasattr(c, "encryptor") else None
+        # tongsuopy 1.0.x 的 Cipher API（cryptography 库式）：Cipher(algo, mode).encryptor()
+        enc = _TsCipher(SM4(_field_key()), modes.CBC(iv)).encryptor()
         ct = enc.update(_pkcs7(data)) + enc.finalize()
     else:  # demo：IV 派生流密钥异或（可逆、非安全）
         ct = _xor_stream(_pkcs7(data), _field_key(), iv)
@@ -123,8 +142,7 @@ def decrypt_field(token: str | None) -> str | None:
         _, iv_b64, ct_b64 = token.split("$")
         iv, ct = _unb64(iv_b64), _unb64(ct_b64)
         if _BACKEND == "tongsuopy":
-            c = SM4(_field_key())
-            dec = c.decryptor(modes.CBC(iv))
+            dec = _TsCipher(SM4(_field_key()), modes.CBC(iv)).decryptor()
             pt = dec.update(ct) + dec.finalize()
         else:
             pt = _xor_stream(ct, _field_key(), iv)
@@ -160,15 +178,15 @@ def verify_jwt(token: str) -> dict | None:
 
 def _jwt_sign(data: bytes) -> bytes:
     if _BACKEND == "tongsuopy":
-        key = _sm2_private_key()
-        return key.sign(data)  # tongsuopy SM2 sign
+        # tongsuopy SM2 走 EC + ECDSA(SM3)；曲线由 PEM 私钥自带
+        return _sm2_private_key().sign(data, _ts_ec.ECDSA(_ts_hashes.SM3()))
     return hmac.new(_demo_jwt_secret(), data, hashlib.sha256).digest()
 
 
 def _jwt_verify(data: bytes, sig: bytes) -> bool:
     if _BACKEND == "tongsuopy":
         try:
-            _sm2_public_key().verify(sig, data)
+            _sm2_public_key().verify(sig, data, _ts_ec.ECDSA(_ts_hashes.SM3()))
             return True
         except Exception:
             return False
@@ -177,11 +195,11 @@ def _jwt_verify(data: bytes, sig: bytes) -> bool:
 
 # tongsuopy SM2 key 载入（生产从 env/KMS）；demo 用 HMAC，不需要密钥对
 def _sm2_private_key():
-    return _ts_sm2.load_pem_private_key(os.environ["SM2_PRIVATE_KEY"].encode(), None)
+    return _ts_ser.load_pem_private_key(os.environ["SM2_PRIVATE_KEY"].encode(), None)
 
 
 def _sm2_public_key():
-    return _ts_sm2.load_pem_public_key(os.environ["SM2_PUBLIC_KEY"].encode())
+    return _ts_ser.load_pem_public_key(os.environ["SM2_PUBLIC_KEY"].encode())
 
 
 def _demo_jwt_secret() -> bytes:

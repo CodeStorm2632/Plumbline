@@ -1,4 +1,7 @@
-// orval mutator + 手写 hooks 复用：注入 baseURL 与 SM2-JWT 认证头，非 2xx 抛错。
+// 兼容两种调用形态：
+//   1) 单参数对象：http({url, method, params, data, signal})   — 业务/测试在用
+//   2) 双参数：    http(url, init)                              — orval 7.21 fetch client 生成的代码在用
+// 三条不可破坏的语义：注入 Bearer / 非 2xx 抛错 / 401 清 token。
 const BASE = import.meta.env.VITE_API_BASE ?? "";
 
 function authHeader(): Record<string, string> {
@@ -6,19 +9,56 @@ function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function http<T>(c: {
-  url: string; method: string;
-  params?: Record<string, unknown>; data?: unknown; signal?: AbortSignal;
-}): Promise<T> {
-  const u = new URL(c.url, location.origin);
-  if (c.params)
-    for (const [k, v] of Object.entries(c.params))
+export type HttpInit = RequestInit & {
+  params?: Record<string, unknown>;
+  data?: unknown;
+};
+
+type HttpCall = {
+  url: string;
+  method?: string;
+  params?: Record<string, unknown>;
+  data?: unknown;
+  signal?: AbortSignal;
+  headers?: HeadersInit;
+};
+
+export async function http<T>(call: HttpCall): Promise<T>;
+export async function http<T>(url: string, init?: HttpInit | AbortSignal): Promise<T>;
+export async function http<T>(
+  a: string | HttpCall,
+  b?: HttpInit | AbortSignal,
+): Promise<T> {
+  // 归一两种调用形态 → (url, opts: HttpInit)。
+  let url: string;
+  let opts: HttpInit;
+  if (typeof a === "string") {
+    url = a;
+    opts = b instanceof AbortSignal ? { signal: b } : (b ?? {});
+  } else {
+    url = a.url;
+    opts = {
+      method: a.method,
+      params: a.params,
+      data: a.data,
+      signal: a.signal,
+      headers: a.headers,
+    };
+  }
+
+  const u = new URL(url, location.origin);
+  if (opts.params)
+    for (const [k, v] of Object.entries(opts.params))
       if (v != null) u.searchParams.set(k, String(v));
   const res = await fetch(BASE + u.pathname + u.search, {
-    method: c.method,
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: c.data ? JSON.stringify(c.data) : undefined,
-    signal: c.signal,
+    ...opts,
+    method: opts.method ?? "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(),
+      ...(opts.headers as Record<string, string> | undefined),
+    },
+    body: opts.data !== undefined ? JSON.stringify(opts.data) : opts.body,
   });
   if (res.status === 401) localStorage.removeItem("token");
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);

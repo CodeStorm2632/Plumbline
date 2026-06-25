@@ -1,30 +1,38 @@
-"""灌入演示用户与申报数据：`uv run python -m app.seed`。"""
+"""灌入演示角色与用户：`uv run python -m app.seed`。"""
+
 from sqlmodel import Session, select
 
 from app.core.db import engine, init_db
 from app.core.security import crypto
-from app.features.review.models import ApplicantRecord
+from app.core.security.rbac import seed_rbac
 from app.features.auth.models import User
 
 
 def run():
     init_db()
     with Session(engine) as s:
+        seed_rbac(s)  # 角色/菜单/权限落库（动态 RBAC 依赖此种子）
         if not s.exec(select(User)).first():
-            s.add(User(id="u-expert", username="expert",
-                       password_hash=crypto.hash_password("Expert@123"),
-                       phone_enc=crypto.encrypt_field("13800138000"),
-                       email_enc=crypto.encrypt_field("expert@corp.com"),
-                       roles_csv="评审专家"))
-            s.add(User(id="u-viewer", username="viewer",
-                       password_hash=crypto.hash_password("Viewer@123"),
-                       roles_csv="回测分析员"))
-            s.add(ApplicantRecord(id="A1", name="张三", owner="u-expert",
-                                  scores={"c1": 2.0}, qc_confirmed=False))
-            s.add(ApplicantRecord(id="A2", name="李四", owner="u-expert",
-                                  scores={"c1": 5.0}, qc_confirmed=True))
+            s.add(
+                User(
+                    id="u-admin",
+                    username="admin",
+                    password_hash=crypto.hash_password("Admin@123"),
+                    phone_enc=crypto.encrypt_field("13800138000"),
+                    email_enc=crypto.encrypt_field("admin@corp.com"),
+                    roles_csv="管理员",
+                )
+            )
+            s.add(
+                User(
+                    id="u-auditor",
+                    username="auditor",
+                    password_hash=crypto.hash_password("Auditor@123"),
+                    roles_csv="审计员",
+                )
+            )
             s.commit()
-            print("seeded: expert/Expert@123, viewer/Viewer@123; applicants A1,A2")
+            print("seeded: admin/Admin@123 (管理员), auditor/Auditor@123 (审计员)")
         else:
             print("already seeded")
 

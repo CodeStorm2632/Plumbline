@@ -1,0 +1,9 @@
+# pnpm 10+/11+ 把仓库级设置从 package.json 的 "pnpm" 字段迁到这里。
+# 即便不是 workspace 项目也需要此文件来承载这些设置。
+onlyBuiltDependencies:
+  - esbuild
+
+# pnpm 11 默认 minimumReleaseAge≈24h，会拒绝最近发布的包（lockfile 里只要有就 fail）。
+# 本仓 lock 含 vite 7.3.6 / @types/node 26.0.1 / node-releases 2.0.50（皆为最新发布），
+# 设 0 关闭该供应链策略，避免容器构建被"今天才发的包"误杀。
+minimumReleaseAge: 0

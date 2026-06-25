@@ -2,6 +2,7 @@
 
 REDIS_URL 可用且 redis 库存在 → 走 Redis；否则内存兜底（带 TTL），保证测试/本地可跑。
 """
+
 from __future__ import annotations
 
 import threading
@@ -35,11 +36,20 @@ class _MemoryStore:
         with self._lock:
             self._d.pop(k, None)
 
+    def delete_prefix(self, prefix: str) -> None:
+        with self._lock:
+            for k in list(self._d):
+                if k.startswith(prefix):
+                    self._d.pop(k, None)
+
     def incr(self, k: str, ttl: int | None = None) -> int:
         with self._lock:
             cur = 0 if self._expired(k) else int((self._d.get(k) or ("0", None))[0])
             cur += 1
-            self._d[k] = (str(cur), time.time() + ttl if ttl else (self._d.get(k) or (None, None))[1])
+            self._d[k] = (
+                str(cur),
+                time.time() + ttl if ttl else (self._d.get(k) or (None, None))[1],
+            )
             return cur
 
 
@@ -61,6 +71,10 @@ def _make_store():
                 def delete(self, k):
                     self.r.delete(k)
 
+                def delete_prefix(self, prefix):
+                    for k in self.r.scan_iter(f"{prefix}*"):
+                        self.r.delete(k)
+
                 def incr(self, k, ttl=None):
                     n = self.r.incr(k)
                     if n == 1 and ttl:
@@ -75,7 +89,23 @@ def _make_store():
 
 store = _make_store()
 
+
 # key 约定
-def k_token(jti: str) -> str: return f"token:white:{jti}"
-def k_captcha(cid: str) -> str: return f"captcha:{cid}"
-def k_lock(username: str) -> str: return f"lock:fail:{username}"
+def k_token(jti: str) -> str:
+    return f"token:white:{jti}"
+
+
+def k_captcha(cid: str) -> str:
+    return f"captcha:{cid}"
+
+
+def k_lock(username: str) -> str:
+    return f"lock:fail:{username}"
+
+
+def k_perms(role_code: str) -> str:
+    return f"rbac:perms:{role_code}"
+
+
+def k_user_block(user_id: str) -> str:
+    return f"auth:block:{user_id}"  # 账号禁用即时吊销标记

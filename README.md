@@ -42,22 +42,87 @@ docs/pipeline.md            三棒流水线 runbook（离线参考）
 > 设计取向：**特性优先（feature-first）而非分层**。切一刀 = 后端加一个 `features/<x>/` +
 > 前端加一个 `features/<x>/`，二者一一对应；跨切片的认证/审计/国密在 `core/`。
 
-## 快速开始
+## 本地启动
+
+### 前置依赖
+
+- Python 3.14 + [`uv`](https://docs.astral.sh/uv/)（后端包管理）
+- Node 20 + [`pnpm`](https://pnpm.io/) 10+（前端）
+- Docker Desktop（仅走 Docker 路线时需要）
+
+数据库默认走 PostgreSQL（Docker 路线）；不装 Docker 时后端会回退到本地 SQLite，Redis 缺失则用内存兜底，依然可以登录跑通演示。
+
+### 路线 A：Docker Compose 全栈起（推荐）
 
 ```bash
-cp .env.example .env
-make up                     # postgres / redis / traefik / backend / frontend
-make seed                   # 演示账号：expert/Expert@123（评审专家）, viewer/Viewer@123（回测分析员）
-
-make check                  # 四道规格关卡（提交前）
-make test                   # 后端 pytest（不装 tongsuopy → 走 demo crypto 后端）
-make gen-lock               # 首次建立 specs/requirements-lock.yaml 基线
-
-# 不用 Docker 单独跑后端：
-cd backend && uv sync --extra dev && uv run python -m app.seed && uv run uvicorn app.main:app --reload
+cp .env.example .env                 # 第一次跑才需要
+make up                              # 拉起 postgres / redis / traefik / backend / frontend
+make seed                            # 灌入演示账号
 ```
 
-访问 `http://localhost/`（Traefik）或 `http://localhost:8000/health`（含当前 crypto 后端标识）。
+访问：
+- 前端：http://localhost/
+- 后端健康检查：http://localhost:8000/health
+- 演示账号：`admin / Admin@123`（管理员）、`auditor / Auditor@123`（审计员）
+
+停服：`make down`。
+
+### 路线 B：原生本地起（无需 Docker）
+
+打开两个终端，分别起后端和前端。
+
+**后端**
+
+```bash
+cd backend
+uv sync --extra dev                          # 首次：装依赖（含 pytest 等）
+uv run python -m app.seed                    # 初始化 SQLite + 演示数据
+uv run uvicorn app.main:app --reload         # 默认 http://127.0.0.1:8000
+```
+
+**前端**
+
+```bash
+cd frontend
+pnpm install                                 # 首次
+pnpm dev                                     # 默认 http://127.0.0.1:5173
+```
+
+登录页用上面的演示账号即可进入 5 个管理屏（用户 / 角色 / 菜单 / 字典 / 日志）。
+
+> 国密：默认无 `tongsuopy` 时 crypto 走 **demo 后端**（不安全，仅本地/CI），`SM2_PRIVATE_KEY` / `SM2_PUBLIC_KEY` 留空即可。生产前必须 `uv sync --extra crypto`，并按下面任选一种方式生成一对 SM2 PEM 密钥并注入 `.env`；`SM4_KEY` 仍需自行注入一个 16 字节随机串。
+
+### 生成 SM2 密钥对（生产必填）
+
+仓内已带脚本，先装国密扩展再跑：
+
+```bash
+cd backend && uv sync --extra crypto
+
+# 方式一：生成两份 PEM 文件（默认输出到当前目录）
+uv run python ../tools/keygen_sm2.py --out-dir ../secrets
+
+# 方式二：直接打印成 .env 行（PEM 换行已转义为 \n）
+uv run python ../tools/keygen_sm2.py --env >> ../.env
+```
+
+把生成的 `SM2_PRIVATE_KEY` / `SM2_PUBLIC_KEY` 填进 `.env`。**绝不把私钥提交到仓库**，建议 `secrets/` 加入 `.gitignore` 或托管到 KMS / GitHub Secrets。
+
+如果不想装 tongsuopy，也可以用 OpenSSL 临时生成（需要 OpenSSL ≥ 1.1.1 且支持 SM2）：
+
+```bash
+openssl ecparam -name SM2 -genkey -noout -out sm2-private.pem
+openssl ec -in sm2-private.pem -pubout -out sm2-public.pem
+```
+
+### 提交前自检
+
+```bash
+make check                  # 四道规格关卡（prd_lint / check_trace / check_xtrace / coverage）
+make test-all               # 后端 pytest + 前端 Vitest
+make openapi                # 重新导出 specs/contract/openapi.json（动了接口必须跑）
+cd frontend && pnpm orval   # 从最新 openapi.json 重新生成前端类型/hooks
+```
 
 ## 安全特性落点
 

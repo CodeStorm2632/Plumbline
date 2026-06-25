@@ -1,17 +1,17 @@
-from datetime import datetime
+from sqlmodel import Field
 
-from sqlmodel import Field, SQLModel
+from app.core.models import SysBase
 
 
-class User(SQLModel, table=True):
+class User(SysBase, table=True):
     id: str = Field(primary_key=True)
     username: str = Field(index=True, unique=True)
     password_hash: str
-    phone_enc: str | None = None      # SM4 密文
-    email_enc: str | None = None      # SM4 密文
-    roles_csv: str = ""               # 角色逗号分隔
-    status: str = "active"            # active | locked | disabled
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    phone_enc: str | None = None  # SM4 密文
+    email_enc: str | None = None  # SM4 密文
+    roles_csv: str = ""  # 角色逗号分隔
+    status: str = "active"  # active | locked | disabled
+    # created_at/updated_at/created_by/updated_by/is_deleted 由 SysBase 提供
 
     @property
     def roles(self) -> list[str]:
