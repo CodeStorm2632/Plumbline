@@ -1,13 +1,29 @@
 # requirements-lock.yaml — append-only ID 登记（由 requirements_lock.py 维护）
-FR-5.1.3: {since: v1.0, summary: "系统输出每个申报人的可解释计分明细（指标—规则—证据—计算式—佐证—材料定位）"}
-FR-5.1.5: {since: v1.0, summary: "系统按档位规则给出档位与「标志性成果」徽标"}
-FR-5.1.6: {since: v1.0, summary: "专家可对单个申报人发起直通车，需填理由并留痕"}
-FR-5.1.7: {since: v1.0, summary: "专家可独立于总分标记「亮点」"}
-FR-5.1.8: {since: v1.0, summary: "命中负面清单任一项触发一票否决，不计入排序"}
-FR-5.2.1: {since: v1.0, summary: "仅质检确认的申报人计入榜单排序"}
-FR-5.2.2: {since: v1.0, summary: "榜单支持按维度筛选、排序、分页"}
-FR-5.3.2: {since: v1.0, summary: "抽取数据须经质检确认后方可计入下游计算与排序"}
-NFR-1: {since: v1.0, summary: "可解释 每条得分可溯源到指标—规则—证据"}
-NFR-2: {since: v1.0, summary: "准确性 计分与配置标准一致"}
-NFR-3: {since: v1.0, summary: "密级 敏感字段按密级管控/脱敏"}
-NFR-4: {since: v1.0, summary: "审计 所有写操作留痕、只增不改"}
+FR-6.1.1: {since: v1.0, summary: "分页/按用户名搜索查询用户列表，手机号/邮箱脱敏展示"}
+FR-6.1.2: {since: v1.0, summary: "新建用户：口令 PBKDF2 SM3 哈希；手机号/邮箱 SM4 加密落库，入参经传输信封解密"}
+FR-6.1.3: {since: v1.0, summary: "编辑用户基本信息（敏感字段同样加密/信封处理）"}
+FR-6.1.4: {since: v1.0, summary: "重置/修改用户口令，符合口令策略"}
+FR-6.1.5: {since: v1.0, summary: "启用/停用用户（ status 切换），停用即不可登录"}
+FR-6.1.6: {since: v1.0, summary: "删除后数据库记录仍在、仅 is_deleted=1 ，列表不展示（回指 ）"}
+FR-6.1.7: {since: v1.0, summary: "给用户分配角色（写 roles_csv ），变更即影响其权限"}
+FR-6.2.1: {since: v1.0, summary: "分页查询角色列表"}
+FR-6.2.2: {since: v1.0, summary: "新建/编辑角色（code、name、备注）"}
+FR-6.2.3: {since: v1.0, summary: "软删除角色（保留原始数据；已被用户引用时给出提示）"}
+FR-6.2.4: {since: v1.0, summary: "给角色分配菜单/按钮权限（写 RoleMenu ），保存后即时失效权限缓存"}
+FR-6.3.1: {since: v1.0, summary: "树形展示菜单（目录/菜单/按钮三级）"}
+FR-6.3.2: {since: v1.0, summary: "新建/编辑菜单节点（name、path、icon、order、parent）"}
+FR-6.3.3: {since: v1.0, summary: "软删除菜单节点（含子节点级联标记）"}
+FR-6.3.4: {since: v1.0, summary: "维护按钮节点的权限码 perm_code （如 sys:user:write ）"}
+FR-6.4.1: {since: v1.0, summary: "按实体/操作人/时间范围分页查询操作日志（ AuditRecord ）"}
+FR-6.4.2: {since: v1.0, summary: "按用户名/结果/时间范围分页查询登录日志（ LoginLog ）"}
+FR-6.4.3: {since: v1.0, summary: "日志中的敏感信息（手机号等）脱敏展示，不落明文"}
+FR-6.5.1: {since: v1.0, summary: "字典类型增删改查（软删）"}
+FR-6.5.2: {since: v1.0, summary: "字典项增删改查（隶属某类型，软删）"}
+FR-6.5.3: {since: v1.0, summary: "按字典类型 code 拉取启用中的字典项（供前端下拉等使用）"}
+NFR-6.1: {since: v1.0, summary: "删除后数据库记录仍在、仅 is_deleted=1 ，列表不展示（回指 ）"}
+NFR-6.2: {since: v1.0, summary: "审计字段 每张系统表带 created_at/updated_at/created_by/upd"}
+NFR-6.3: {since: v1.0, summary: "维护按钮节点的权限码 perm_code （如 sys:user:write ）"}
+NFR-6.4: {since: v1.0, summary: "越权防护 垂直（按钮级 require_perms）+ 水平（数据范围过滤），写操作留痕"}
+NFR-6.5: {since: v1.0, summary: "新建用户：口令 PBKDF2 SM3 哈希；手机号/邮箱 SM4 加密落库，入参经传输信封解密"}
+NFR-6.6: {since: v1.0, summary: "手机号/邮箱在库为 SM4 密文、接口出参为掩码（回指 ）"}
+NFR-6.7: {since: v1.0, summary: "新建用户：口令 PBKDF2 SM3 哈希；手机号/邮箱 SM4 加密落库，入参经传输信封解密"}

@@ -15,6 +15,7 @@ Usage:
 Exit 0 = PASS; 1 = lint failures; 2 = usage / file error.
 This is a heuristic structural lint, not a semantic reviewer.
 """
+
 import re
 import sys
 
@@ -35,7 +36,7 @@ def split_frontmatter(text):
         end = text.find("\n---", 3)
         if end != -1:
             fm = text[3:end].strip()
-            body = text[end + 4:]
+            body = text[end + 4 :]
             return fm, body
     return "", text
 
@@ -65,6 +66,23 @@ def section_bounds(lines, number):
     return (s_idx, end)
 
 
+def functional_bounds(lines):
+    """定位「功能需求」章节：按标题含「功能需求」识别，不依赖固定章号
+    （talent 用 §5、sys-admin 用 §6 等都适配）。回退到旧的 §5 数字匹配。"""
+    for i, ln in enumerate(lines):
+        m = HEADING_RE.match(ln)
+        if m and "功能需求" in m.group(2):
+            s_idx, s_level = i, len(m.group(1))
+            end = len(lines)
+            for j in range(s_idx + 1, len(lines)):
+                m2 = HEADING_RE.match(lines[j])
+                if m2 and len(m2.group(1)) <= s_level:
+                    end = j
+                    break
+            return (s_idx, end)
+    return section_bounds(lines, "5")
+
+
 def main(argv):
     if len(argv) != 2:
         print("usage: prd_lint.py <PRD.md>")
@@ -87,10 +105,12 @@ def main(argv):
             if not re.search(rf"^{key}\s*:", fm, re.MULTILINE):
                 errors.append(f"frontmatter 缺少字段: {key}")
 
-    # 2. §5 leaf modules each have an FR
-    b5 = section_bounds(lines, "5")
+    # 2. 功能需求章节的叶子模块各有 FR（按标题「功能需求」定位，兼容 §5/§6）
+    b5 = functional_bounds(lines)
     if not b5:
-        warnings.append("未找到第 5 章（功能需求详述）——若功能需求在别处，请确认章号。")
+        warnings.append(
+            "未找到「功能需求」章节——若功能需求在别处，请确认标题含「功能需求」。"
+        )
     else:
         s, e = b5
         sub = []  # (line_idx, level, title)
@@ -102,7 +122,7 @@ def main(argv):
         for k, (li, lvl, title) in enumerate(sub):
             nxt_same_or_shallower = e
             has_child = False
-            for (lj, lvl2, _t) in sub[k + 1:]:
+            for lj, lvl2, _t in sub[k + 1 :]:
                 if lvl2 <= lvl:
                     nxt_same_or_shallower = lj
                     break
@@ -114,7 +134,7 @@ def main(argv):
                 continue  # not a leaf
             block = "\n".join(lines[li:nxt_same_or_shallower])
             if not FR_RE.search(block):
-                errors.append(f"§5 叶子模块缺少 [FR-*]: 行{li+1} 「{title}」")
+                errors.append(f"§5 叶子模块缺少 [FR-*]: 行{li + 1} 「{title}」")
 
     # 3. FR referenced elsewhere (§9/§10/...) but never defined in §5 = likely typo
     if b5:
@@ -154,8 +174,10 @@ def main(argv):
     if errors:
         print("FAIL ✗ 请修正以上问题后再进入下游（prd-to-ui-spec）。")
         return 1
-    print("PASS ✓ PRD 结构与 ID 自检通过，可进入 prd-to-ui-spec。"
-          + ("（有 warning，建议处理）" if warnings else ""))
+    print(
+        "PASS ✓ PRD 结构与 ID 自检通过，可进入 prd-to-ui-spec。"
+        + ("（有 warning，建议处理）" if warnings else "")
+    )
     return 0
 
 

@@ -53,13 +53,15 @@ CHECK_XTRACE="$(resolve spec-to-slice check_xtrace.py)"
 COVERAGE="$SELF_DIR/coverage.py"
 
 # 定位产物（同时支持 specs/ 分组布局与根级扁平布局，自动择优）
-PRD="$(ls "$PROJECT"/specs/prd/PRD-*.md 2>/dev/null | head -1)"
-[ -z "$PRD" ] && PRD="$(ls "$PROJECT"/prd/PRD-*.md 2>/dev/null | head -1)"
+# 多 PRD：收齐全部 PRD-*.md（prd_lint/coverage 逐份跑，trace/xtrace 取并集）。
+PRD_DIR="$PROJECT/specs/prd"; [ -d "$PRD_DIR" ] || PRD_DIR="$PROJECT/prd"
+PRDS=(); while IFS= read -r f; do PRDS+=("$f"); done < <(ls "$PRD_DIR"/PRD-*.md 2>/dev/null | sort)
+PRD="${PRDS[0]:-}"
 SPEC_DIR="$PROJECT/specs/ui"; [ -d "$SPEC_DIR" ] || SPEC_DIR="$PROJECT/ui-spec"
 SPECS=$(ls "$SPEC_DIR"/SC-*.md 2>/dev/null)
 OPENAPI="$PROJECT/specs/contract/openapi.json"; [ -f "$OPENAPI" ] || OPENAPI="$PROJECT/openapi/openapi.json"
 
-[ -n "$PRD" ] || { echo "✗ 未找到 $PROJECT/prd/PRD-*.md" >&2; exit 2; }
+[ -n "$PRD" ] || { echo "✗ 未找到 $PRD_DIR/PRD-*.md" >&2; exit 2; }
 
 bar() { printf '─%.0s' {1..52}; echo; }
 PASS=0; FAIL=0; SKIP=0
@@ -75,15 +77,17 @@ run_gate() { # $1=label $2..=command
 }
 
 echo "项目: $PROJECT"
-echo "PRD : $PRD"
+echo "PRD : ${PRDS[*]}"
 echo "技能脚本根: $SKILLS_DIR"
 
-# ① prd_lint
+# ① prd_lint（逐份 PRD）
 if [ -n "$PRD_LINT" ]; then
-  run_gate "①→② prd_lint" python3 "$PRD_LINT" "$PRD"
+  for prd in "${PRDS[@]}"; do
+    run_gate "①→② prd_lint $(basename "$prd")" python3 "$PRD_LINT" "$prd"
+  done
 else echo; echo "⚠ 跳过 ①：未找到 prd-writer/scripts/prd_lint.py"; SKIP=$((SKIP+1)); fi
 
-# ② check_trace（有 SC 才跑）
+# ② check_trace（有 SC 才跑；check_trace 内部对同目录 PRD-*.md 取并集）
 if [ -n "$SPECS" ]; then
   if [ -n "$CHECK_TRACE" ]; then
     # shellcheck disable=SC2086
@@ -91,19 +95,21 @@ if [ -n "$SPECS" ]; then
   else echo; echo "⚠ 跳过 ②：未找到 prd-to-ui-spec/scripts/check_trace.py"; SKIP=$((SKIP+1)); fi
 else echo; echo "⏭ 跳过 ②：$SPEC_DIR 下暂无 SC-*.md（还没出屏）"; SKIP=$((SKIP+1)); fi
 
-# ③ check_xtrace（有 openapi 才跑）
+# ③ check_xtrace（有 openapi 才跑；传入全部 PRD 取并集合法 ID）
 if [ -f "$OPENAPI" ]; then
   if [ -n "$CHECK_XTRACE" ]; then
-    run_gate "③验收 check_xtrace" python3 "$CHECK_XTRACE" "$OPENAPI" "$PRD"
+    run_gate "③验收 check_xtrace" python3 "$CHECK_XTRACE" "$OPENAPI" "${PRDS[@]}"
   else echo; echo "⚠ 跳过 ③：未找到 spec-to-slice/scripts/check_xtrace.py"; SKIP=$((SKIP+1)); fi
 else echo; echo "⏭ 跳过 ③：$OPENAPI 不存在（还没切片导出契约）"; SKIP=$((SKIP+1)); fi
 
-# 全链 coverage（始终跑，传入已有的 specs/openapi）
-COV_ARGS=("$PRD")
-[ -n "$SPECS" ] && COV_ARGS+=(--specs "$SPEC_DIR")
-[ -f "$OPENAPI" ] && COV_ARGS+=(--openapi "$OPENAPI")
-[ -n "$STRICT" ] && COV_ARGS+=("$STRICT")
-run_gate "全链 coverage" python3 "$COVERAGE" "${COV_ARGS[@]}"
+# 全链 coverage（逐份 PRD，各报各的 FR；传入已有的 specs/openapi）
+for prd in "${PRDS[@]}"; do
+  COV_ARGS=("$prd")
+  [ -n "$SPECS" ] && COV_ARGS+=(--specs "$SPEC_DIR")
+  [ -f "$OPENAPI" ] && COV_ARGS+=(--openapi "$OPENAPI")
+  [ -n "$STRICT" ] && COV_ARGS+=("$STRICT")
+  run_gate "全链 coverage $(basename "$prd")" python3 "$COVERAGE" "${COV_ARGS[@]}"
+done
 
 echo; bar
 echo "汇总: ✅$PASS  ❌$FAIL  ⏭/⚠$SKIP"
