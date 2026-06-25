@@ -1,0 +1,39 @@
+name: auto-build
+on:
+  workflow_dispatch:
+    inputs:
+      requirement:
+        description: "要自动实现的需求描述"
+        required: true
+      max_iters:
+        description: "最大迭代数"
+        default: "6"
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  auto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: pip install uv && corepack enable && npm i -g @anthropic-ai/claude-code
+      - name: 自治循环（有界，绿即停）
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MAX_ITERS: ${{ inputs.max_iters }}
+          PERMISSION: acceptEdits        # CI 锁死可改 dontAsk 并在 settings.json 扩 allow 名单
+        run: bash tools/loop/auto_build.sh "${{ inputs.requirement }}" || true
+      - name: 开 PR（人工审核合并，绝不自动合并/部署）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "plumbline-bot"; git config user.email "bot@plumbline"
+          BR="auto/$(date +%s)"; git checkout -b "$BR"
+          git add -A && git commit -m "auto: ${{ inputs.requirement }}" || { echo "无改动"; exit 0; }
+          git push origin "$BR"
+          gh pr create --title "auto: ${{ inputs.requirement }}" \
+            --body "由 auto-build 自治循环生成。**需人工 + code/security review 后再合并**；部署仍走 cd.yml 审批门。" || true

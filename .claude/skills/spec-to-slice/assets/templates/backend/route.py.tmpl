@@ -1,0 +1,20 @@
+"""<Feature> 路由：operation_id + x-trace + require_roles。"""
+from __future__ import annotations
+from fastapi import APIRouter, Depends
+from sqlmodel import Session
+from ...core import User, get_session, require_roles
+from ...schemas import <Action>Request, <Feature>Response
+
+router = APIRouter(prefix="/api", tags=["<feature>"])
+
+
+@router.post(
+    "/<entity>/{entity_id}/<action>",
+    response_model=<Feature>Response, operation_id="<action><Entity>",
+    summary="...",
+    openapi_extra={"x-trace": ["<FR-x>", "NFR-4"]},
+)
+def <action>_route(entity_id: str, body: <Action>Request,
+                   session: Session = Depends(get_session),
+                   user: User = Depends(require_roles("<角色>"))) -> <Feature>Response:
+    ...

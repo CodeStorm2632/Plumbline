@@ -1,0 +1,61 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      # 生产启用 HTTPS：--entrypoints.websecure.address=:443 + certresolver
+    ports: ["80:80", "8080:8080"]
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redisdata:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      ENV: prod
+      DATABASE_URL: postgresql+psycopg://app:app@db:5432/app
+      REDIS_URL: redis://redis:6379/0
+      SM2_PRIVATE_KEY: ${SM2_PRIVATE_KEY:-}
+      SM2_PUBLIC_KEY: ${SM2_PUBLIC_KEY:-}
+      SM4_KEY: ${SM4_KEY:-0123456789abcdef}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/health`)
+      - traefik.http.services.api.loadbalancer.server.port=8000
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.web.rule=PathPrefix(`/`)
+      - traefik.http.services.web.loadbalancer.server.port=80
+
+volumes:
+  pgdata:
+  redisdata:

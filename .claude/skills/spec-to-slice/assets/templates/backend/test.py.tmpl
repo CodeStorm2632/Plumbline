@@ -1,0 +1,28 @@
+"""<feature> 切片测试。conftest 统一测试库；覆盖正常 + 权限 + (写)必填/重算/留痕。"""
+import os, tempfile
+from pathlib import Path
+# conftest.py 已在 app 导入前 setdefault DATABASE_URL=sqlite:///<tmp>
+from fastapi.testclient import TestClient
+from app.core import create_db_and_tables
+from app.main import app
+
+EXPERT = {"Authorization": "Bearer demo:expert"}
+client = TestClient(app)
+
+
+def setup_module():
+    create_db_and_tables()
+
+
+def test_happy_path():
+    r = client.post("/api/<entity>/X/<action>", json={"action": "approve"}, headers=EXPERT)
+    assert r.status_code == 200
+
+
+def test_requires_reason():
+    r = client.post("/api/<entity>/X/<action>", json={"action": "amend"}, headers=EXPERT)
+    assert r.status_code == 422
+
+
+def test_role_guard():
+    assert client.post("/api/<entity>/X/<action>", json={"action": "approve"}).status_code == 401

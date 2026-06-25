@@ -1,0 +1,26 @@
+// feature/api.ts — TanStack Query hooks。读 useQuery；写 useMutation + 成功失效相关 query。
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { http } from "../../lib/api/http";
+
+export const listKey = (...parts: unknown[]) => ["<feature>", ...parts] as const;
+
+export function use<Feature>List(params: Record<string, unknown>) {
+  return useQuery({
+    queryKey: listKey(params),
+    queryFn: ({ signal }) => http<unknown>({ url: "/api/<feature>", method: "GET", params, signal }),
+    staleTime: 30_000,
+  });
+}
+
+export function use<Action>(entityId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) =>
+      http<unknown>({ url: `/api/<entity>/${entityId}/<action>`, method: "POST", data: body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["<entity>", entityId] }); // 明细
+      qc.invalidateQueries({ queryKey: ["<feature>"] });          // 列表
+      qc.invalidateQueries({ queryKey: ["audit", entityId] });    // 留痕
+    },
+  });
+}

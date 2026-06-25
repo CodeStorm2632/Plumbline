@@ -1,0 +1,13 @@
+"""
+conftest.py — 统一测试库（必须在任何 app 导入之前设定 DATABASE_URL）。
+多个测试文件各自 import app 时若各设 DATABASE_URL 会相互覆盖、共用同一 engine 导致串扰；
+放在 conftest 里 setdefault 可一处生效。放在 backend/tests/conftest.py。
+"""
+import os
+import tempfile
+from pathlib import Path
+
+_DB = Path(tempfile.gettempdir()) / "<feature>_test.db"
+if _DB.exists():
+    _DB.unlink()
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_DB}")

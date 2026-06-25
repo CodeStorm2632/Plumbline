@@ -1,0 +1,30 @@
+"""<Feature> 表模型。表模型与 API schema 分离；JSON 列 PostgreSQL 用 JSONB（迁移指定）。"""
+from __future__ import annotations
+from datetime import datetime, timezone
+from typing import Any, Optional
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, SQLModel
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class <Entity>(SQLModel, table=True):
+    __tablename__ = "<entity>"
+    id: str = Field(primary_key=True)
+    # ... 业务字段
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+# 写类切片：审计表（NFR-4）
+class AuditRecord(SQLModel, table=True):
+    __tablename__ = "audit_record"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    entity_id: str = Field(index=True)
+    action: str = Field(index=True)
+    target: Optional[str] = None
+    reason: str = ""
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # before/after
+    operator: Optional[str] = None
+    created_at: datetime = Field(default_factory=_utcnow, index=True)

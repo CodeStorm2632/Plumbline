@@ -1,0 +1,5 @@
+# indicators.yaml — 结构化指标（示例为空，按 prd-writer/indicators-schema.md 填）
+meta:
+  source_prd: PRD-talent-eval
+  version: v1.0
+groups: []

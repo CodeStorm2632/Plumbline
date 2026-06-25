@@ -1,0 +1,35 @@
+"""
+写服务 — 关键范式：改持久状态 → 写审计(NFR-4) → [若有领域计算则重算] → 返回最新结果。
+纯 CRUD（无领域计算）省去 recompute，直接 commit 后返回更新后的实体。
+改 JSON 字段后必须 flag_modified，否则不落库。
+"""
+from __future__ import annotations
+from typing import Optional
+from fastapi import HTTPException, status
+from sqlalchemy.orm.attributes import flag_modified
+from sqlmodel import Session
+from ..core import User
+from ..models import <Entity>, AuditRecord
+# from .recompute import recompute  # 领域重算（如评分）
+
+
+def _audit(session, entity_id, action, user, target=None, reason="", payload=None):
+    session.add(AuditRecord(entity_id=entity_id, action=action, target=target,
+                            reason=reason or "", operator=user.sub, payload=payload or {}))
+
+
+def do_<action>(session: Session, entity_id: str, body, user: User):
+    rec = session.get(<Entity>, entity_id)
+    if rec is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "不存在")
+    before = dict(rec.payload)
+    # 1) 改状态
+    rec.payload["..."] = "..."
+    flag_modified(rec, "payload")
+    session.add(rec)
+    # 2) 写审计
+    _audit(session, entity_id, "<action>", user, reason=getattr(body, "reason", ""),
+           payload={"before": before, "after": dict(rec.payload)})
+    session.commit()
+    # 3) 触发重算并返回最新
+    return recompute(session, entity_id, user)

@@ -1,0 +1,17 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+*.db
+.env
+# node
+node_modules/
+dist/
+frontend/src/lib/api/generated/
+# misc
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+
+# Claude Code 个人设置
+.claude/settings.local.json

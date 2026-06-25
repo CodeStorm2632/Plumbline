@@ -1,0 +1,16 @@
+# 安装：pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: spec-gates
+        name: SDD 四道规格关卡
+        entry: bash tools/pipeline/pipeline_check.sh .
+        language: system
+        pass_filenames: false
+        files: '^specs/'
+      - id: id-lock
+        name: 需求 ID 稳定性比对
+        entry: bash -c 'python tools/pipeline/requirements_lock.py check specs/prd/PRD-*.md --lock specs/requirements-lock.yaml'
+        language: system
+        pass_filenames: false
+        files: '^specs/prd/'

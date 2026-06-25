@@ -1,0 +1,62 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:        # 供 cd.yml 复用：部署前必须先过这一关
+
+jobs:
+  spec-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: 四道规格关卡（悬空 + 漏做）
+        run: bash tools/pipeline/pipeline_check.sh .
+      - name: ID 稳定性比对
+        run: |
+          if [ -f specs/requirements-lock.yaml ]; then
+            python tools/pipeline/requirements_lock.py check specs/prd/PRD-*.md --lock specs/requirements-lock.yaml
+          else echo "无 lock，跳过（make gen-lock 建基线）"; fi
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install uv
+      - working-directory: backend
+        run: uv sync --extra dev          # 不装 crypto → demo 后端
+      - working-directory: backend
+        run: uv run pytest -q
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: corepack enable
+      - working-directory: frontend
+        run: pnpm install
+      - name: 类型检查
+        working-directory: frontend
+        run: pnpm lint
+      - name: 单元/组件测试（Vitest）
+        working-directory: frontend
+        run: pnpm test
+
+  contract-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install uv
+      - name: 重新导出 OpenAPI
+        working-directory: backend
+        run: |
+          uv sync --extra dev
+          uv run python export_openapi.py ../specs/contract/openapi.json
+      - name: 契约须与后端一致
+        run: |
+          git diff --exit-code specs/contract/openapi.json \
+            || (echo "::error::openapi.json 与后端不一致，请提交 make openapi 的结果" && exit 1)

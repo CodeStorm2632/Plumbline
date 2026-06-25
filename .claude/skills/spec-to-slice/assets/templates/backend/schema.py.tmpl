@@ -1,0 +1,21 @@
+"""<Feature> 请求/响应 schema。复用领域纯模块的契约作为响应（前后端同形）。"""
+from __future__ import annotations
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, model_validator
+# from domain_module.schema import <DomainResult>  # 复用领域契约作为响应
+
+
+class <Action>Request(BaseModel):
+    action: Literal["approve", "reject", "amend"]
+    reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _require_reason(self):
+        if self.action in ("reject", "amend") and not (self.reason and self.reason.strip()):
+            raise ValueError("该操作必须填写理由")  # → 422
+        return self
+
+
+class <Feature>Response(BaseModel):
+    id: str
+    # ... 响应字段

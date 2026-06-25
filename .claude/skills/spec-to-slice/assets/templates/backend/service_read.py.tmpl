@@ -1,0 +1,12 @@
+"""读服务：select 聚合/排序/分页 → schema。不手拼 SQL。"""
+from __future__ import annotations
+from sqlmodel import Session, select
+from ..models import <Entity>
+from ..schemas import <Feature>Response
+
+
+def list_<feature>(session: Session, **filters) -> list[<Feature>Response]:
+    stmt = select(<Entity>)
+    # .where(...).order_by(...).limit(...)
+    rows = session.exec(stmt).all()
+    return [<Feature>Response(id=r.id) for r in rows]  # 转 schema，勿直接返回表模型
