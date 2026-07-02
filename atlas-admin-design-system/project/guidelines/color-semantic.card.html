@@ -1,0 +1,19 @@
+<!-- @dsCard group="Colors" viewport="700x180" name="Semantic Status" subtitle="success / warning / danger / info — solid + subtle" -->
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8" /><link rel="stylesheet" href="../styles.css" />
+<style>
+  body{margin:0;padding:16px;background:var(--card);font-family:var(--font-sans)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .col{display:flex;flex-direction:column;gap:6px}
+  .solid{height:44px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--text-sm);font-weight:600}
+  .subtle{height:34px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:var(--text-xs);font-weight:600}
+  .lbl{font-size:var(--text-2xs);font-family:var(--font-mono);color:var(--muted-foreground)}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="col"><div class="solid" style="background:var(--success)">启用 / 成功</div><div class="subtle" style="background:var(--success-subtle);color:var(--success-subtle-foreground)">subtle</div><div class="lbl">--success</div></div>
+    <div class="col"><div class="solid" style="background:var(--warning);color:var(--warning-foreground)">待处理</div><div class="subtle" style="background:var(--warning-subtle);color:var(--warning-subtle-foreground)">subtle</div><div class="lbl">--warning</div></div>
+    <div class="col"><div class="solid" style="background:var(--destructive)">失败 / 删除</div><div class="subtle" style="background:var(--destructive-subtle);color:var(--destructive-subtle-foreground)">subtle</div><div class="lbl">--destructive</div></div>
+    <div class="col"><div class="solid" style="background:var(--info)">登录 / 信息</div><div class="subtle" style="background:var(--info-subtle);color:var(--info-subtle-foreground)">subtle</div><div class="lbl">--info</div></div>
+  </div>
+</body></html>

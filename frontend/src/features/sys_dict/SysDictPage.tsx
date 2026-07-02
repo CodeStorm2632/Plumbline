@@ -1,8 +1,30 @@
 import { useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Edit2, PlusCircle, Search, Trash2 } from "lucide-react";
 
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { DataTable } from "../../components/ui/data-table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogBody,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+  DialogClose,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { NativeSelect } from "../../components/ui/native-select";
+import { Skeleton } from "../../components/ui/skeleton";
 import {
   type CreateDictInput,
   type CreateDictItemInput,
+  type SysDict,
+  type SysDictItem,
   useCreateDict,
   useCreateDictItem,
   useDeleteDict,
@@ -34,9 +56,15 @@ export function SysDictPage({ roles }: { roles: string[] }) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [dictForm, setDictForm] = useState<CreateDictInput>(emptyDict);
   const [itemForm, setItemForm] = useState<CreateDictItemInput & { status?: string }>(emptyItem);
+  const [dictDialogOpen, setDictDialogOpen] = useState(false);
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
 
   if (!canRead) {
-    return <p className="p-6 text-amber-700" role="alert">无访问字典管理的权限。</p>;
+    return (
+      <p className="p-6" role="alert" style={{ color: "var(--warning-foreground)", background: "var(--warning-subtle)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)" }}>
+        无访问字典管理的权限。
+      </p>
+    );
   }
 
   const selectType = (code: string) => {
@@ -44,89 +72,278 @@ export function SysDictPage({ roles }: { roles: string[] }) {
     setItemForm({ ...emptyItem, type_code: code });
     setEditingItemId(null);
   };
-  const resetDict = () => { setEditingDictId(null); setDictForm(emptyDict); };
-  const resetItem = () => { setEditingItemId(null); setItemForm({ ...emptyItem, type_code: selectedCode }); };
+
+  const resetDict = () => { setEditingDictId(null); setDictForm(emptyDict); setDictDialogOpen(false); };
+  const resetItem = () => { setEditingItemId(null); setItemForm({ ...emptyItem, type_code: selectedCode }); setItemDialogOpen(false); };
+
   const submitDict = () => {
     if (editingDictId) updateDict.mutate({ id: editingDictId, data: dictForm }, { onSuccess: resetDict });
     else createDict.mutate(dictForm, { onSuccess: (d) => { resetDict(); selectType(d.code); } });
   };
+
   const submitItem = () => {
     const data = { ...itemForm, type_code: selectedCode };
     if (editingItemId) updateItem.mutate({ id: editingItemId, data }, { onSuccess: resetItem });
     else createItem.mutate(data, { onSuccess: resetItem });
   };
 
+  const dictColumns: ColumnDef<SysDict>[] = [
+    {
+      accessorKey: "code",
+      header: "Code",
+      cell: ({ row }) => (
+        <button
+          onClick={() => selectType(row.original.code)}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-xs)",
+            color: "var(--primary)",
+            textDecoration: selectedCode === row.original.code ? "underline" : "none",
+            fontWeight: selectedCode === row.original.code ? "var(--font-semibold)" : "inherit",
+            padding: 0,
+          }}
+        >
+          {row.original.code}
+        </button>
+      ),
+    },
+    { accessorKey: "name", header: "名称" },
+    {
+      accessorKey: "remark",
+      header: "备注",
+      cell: ({ row }) => (
+        <span style={{ color: "var(--muted-foreground)" }}>{row.original.remark || "—"}</span>
+      ),
+    },
+    ...(canWrite
+      ? [
+          {
+            id: "actions",
+            header: "操作",
+            cell: ({ row }: { row: { original: SysDict } }) => (
+              <span style={{ display: "flex", gap: "4px" }}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="编辑"
+                  onClick={() => {
+                    setEditingDictId(row.original.id);
+                    setDictForm({ code: row.original.code, name: row.original.name, remark: row.original.remark });
+                    setDictDialogOpen(true);
+                  }}
+                >
+                  <Edit2 size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="删除"
+                  style={{ color: "var(--destructive)" }}
+                  onClick={() => deleteDict.mutate(row.original.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </span>
+            ),
+          } as ColumnDef<SysDict>,
+        ]
+      : []),
+  ];
+
+  const itemColumns: ColumnDef<SysDictItem>[] = [
+    { accessorKey: "label", header: "标签" },
+    {
+      accessorKey: "value",
+      header: "值",
+      cell: ({ row }) => (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)" }}>
+          {row.original.value}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "状态",
+      cell: ({ row }) => (
+        <Badge tone={row.original.status === "active" ? "success" : "neutral"} dot>
+          {row.original.status === "active" ? "启用" : "停用"}
+        </Badge>
+      ),
+    },
+    ...(canWrite
+      ? [
+          {
+            id: "item_actions",
+            header: "操作",
+            cell: ({ row }: { row: { original: SysDictItem } }) => (
+              <span style={{ display: "flex", gap: "4px" }}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="编辑"
+                  onClick={() => {
+                    setEditingItemId(row.original.id);
+                    setItemForm({ type_code: row.original.type_code, label: row.original.label, value: row.original.value, order_no: row.original.order_no, status: row.original.status });
+                    setItemDialogOpen(true);
+                  }}
+                >
+                  <Edit2 size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  title="删除"
+                  style={{ color: "var(--destructive)" }}
+                  onClick={() => deleteItem.mutate(row.original.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </span>
+            ),
+          } as ColumnDef<SysDictItem>,
+        ]
+      : []),
+  ];
+
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">字典管理</h1>
-        <input className="border p-1" placeholder="搜索类型" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <h1 style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: "var(--font-bold)", letterSpacing: "var(--tracking-tight)" }}>
+        字典管理
+      </h1>
 
-      {canWrite && (
-        <div className="flex flex-wrap items-end gap-2 rounded border p-3">
-          <input className="border p-1 disabled:bg-gray-100" placeholder="类型 code" disabled={!!editingDictId}
-            value={dictForm.code} onChange={(e) => setDictForm({ ...dictForm, code: e.target.value })} />
-          <input className="border p-1" placeholder="类型名称"
-            value={dictForm.name} onChange={(e) => setDictForm({ ...dictForm, name: e.target.value })} />
-          <button className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-50"
-            disabled={createDict.isPending || updateDict.isPending || !dictForm.code || !dictForm.name}
-            onClick={submitDict}>
-            {createDict.isPending || updateDict.isPending ? "提交中…" : editingDictId ? "保存字典类型" : "新建字典类型"}
-          </button>
-          {editingDictId && <button className="rounded border px-3 py-1" onClick={resetDict}>取消编辑</button>}
-          {(createDict.isError || updateDict.isError) && <span className="text-sm text-red-600">{String(((createDict.error || updateDict.error) as Error).message)}</span>}
-        </div>
-      )}
-
-      {dicts.isLoading && <p>加载中…</p>}
-      {dicts.isError && <div role="alert" className="text-red-600">加载失败。<button className="underline" onClick={() => dicts.refetch()}>重试</button></div>}
-      {dicts.data && dicts.data.length === 0 && <p className="text-gray-500">暂无字典类型。</p>}
-
-      {dicts.data && dicts.data.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <table className="w-full border-collapse text-sm">
-            <thead><tr className="border-b text-left"><th className="p-2">code</th><th className="p-2">名称</th><th className="p-2">备注</th>{canWrite && <th className="p-2">操作</th>}</tr></thead>
-            <tbody>{dicts.data.map((d) => (
-              <tr key={d.id} className={selectedCode === d.code ? "border-b bg-blue-50" : "border-b"}>
-                <td className="p-2"><button className="underline" onClick={() => selectType(d.code)}>{d.code}</button></td>
-                <td className="p-2">{d.name}</td>
-                <td className="p-2">{d.remark || "—"}</td>
-                {canWrite && <td className="space-x-2 p-2"><button className="text-blue-600 hover:underline" onClick={() => { setEditingDictId(d.id); setDictForm({ code: d.code, name: d.name, remark: d.remark }); }}>编辑</button><button className="text-red-600 hover:underline" onClick={() => deleteDict.mutate(d.id)}>删除</button></td>}
-              </tr>
-            ))}</tbody>
-          </table>
-
-          <section className="space-y-3 rounded border p-3">
-            <h2 className="font-medium">字典项 {selectedCode || "（请选择字典类型）"}</h2>
-            {!selectedCode && <p className="text-gray-500">请选择字典类型。</p>}
-            {selectedCode && canWrite && (
-              <div className="flex flex-wrap items-end gap-2">
-                <input className="border p-1" placeholder="label" value={itemForm.label} onChange={(e) => setItemForm({ ...itemForm, label: e.target.value, type_code: selectedCode })} />
-                <input className="border p-1" placeholder="value" value={itemForm.value} onChange={(e) => setItemForm({ ...itemForm, value: e.target.value, type_code: selectedCode })} />
-                <select className="border p-1" value={itemForm.status ?? "active"} onChange={(e) => setItemForm({ ...itemForm, status: e.target.value })}>
-                  <option value="active">active</option><option value="disabled">disabled</option>
-                </select>
-                <button className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-50" disabled={createItem.isPending || updateItem.isPending || !itemForm.label || !itemForm.value} onClick={submitItem}>
-                  {editingItemId ? "保存字典项" : "新建字典项"}
-                </button>
-                {editingItemId && <button className="rounded border px-3 py-1" onClick={resetItem}>取消编辑</button>}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        {/* 字典类型 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>字典类型</CardTitle>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <Input leading={<Search size={13} />} placeholder="搜索" style={{ width: "160px" }} value={q} onChange={(e) => setQ(e.target.value)} />
+              {canWrite && (
+                <Dialog open={dictDialogOpen} onOpenChange={(o) => { if (!o) resetDict(); else setDictDialogOpen(true); }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" onClick={() => { setEditingDictId(null); setDictForm(emptyDict); setDictDialogOpen(true); }}>
+                      <PlusCircle size={13} />
+                      新建
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingDictId ? "编辑字典类型" : "新建字典类型"}</DialogTitle>
+                      <DialogDescription>填写类型编码和名称。</DialogDescription>
+                    </DialogHeader>
+                    <DialogBody>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>类型 Code <span style={{ color: "var(--destructive)" }}>*</span></label>
+                          <Input placeholder="唯一标识" disabled={!!editingDictId} value={dictForm.code} onChange={(e) => setDictForm({ ...dictForm, code: e.target.value })} />
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>名称 <span style={{ color: "var(--destructive)" }}>*</span></label>
+                          <Input placeholder="显示名称" value={dictForm.name} onChange={(e) => setDictForm({ ...dictForm, name: e.target.value })} />
+                        </div>
+                        {(createDict.isError || updateDict.isError) && (
+                          <p role="alert" style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--destructive)" }}>
+                            {String(((createDict.error ?? updateDict.error) as Error | null)?.message)}
+                          </p>
+                        )}
+                      </div>
+                    </DialogBody>
+                    <DialogFooter>
+                      <DialogClose asChild><Button variant="outline" size="sm" onClick={resetDict}>取消</Button></DialogClose>
+                      <Button size="sm" disabled={createDict.isPending || updateDict.isPending || !dictForm.code || !dictForm.name} onClick={submitDict}>
+                        {editingDictId ? "保存" : "新建字典类型"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {dicts.isLoading && <Skeleton />}
+            {dicts.isError && (
+              <div role="alert" style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--destructive)" }}>
+                加载失败。<button onClick={() => dicts.refetch()} style={{ marginLeft: "4px", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>重试</button>
               </div>
             )}
-            {items.isLoading && <p>加载中…</p>}
-            {items.isError && <div role="alert" className="text-red-600">加载失败。<button className="underline" onClick={() => items.refetch()}>重试</button></div>}
-            {selectedCode && items.data && items.data.length === 0 && <p className="text-gray-500">暂无字典项。</p>}
-            {items.data && items.data.length > 0 && (
-              <table className="w-full border-collapse text-sm">
-                <thead><tr className="border-b text-left"><th className="p-2">label</th><th className="p-2">value</th><th className="p-2">状态</th>{canWrite && <th className="p-2">操作</th>}</tr></thead>
-                <tbody>{items.data.map((i) => (
-                  <tr key={i.id} className="border-b"><td className="p-2">{i.label}</td><td className="p-2">{i.value}</td><td className="p-2">{i.status}</td>{canWrite && <td className="space-x-2 p-2"><button className="text-blue-600 hover:underline" onClick={() => { setEditingItemId(i.id); setItemForm({ type_code: i.type_code, label: i.label, value: i.value, order_no: i.order_no, status: i.status }); }}>编辑</button><button className="text-red-600 hover:underline" onClick={() => deleteItem.mutate(i.id)}>删除</button></td>}</tr>
-                ))}</tbody>
-              </table>
+            {dicts.data && dicts.data.length === 0 && <p style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>暂无字典类型。</p>}
+            {dicts.data && dicts.data.length > 0 && (
+              <div>
+                {/* Highlight selected row via inline row style override */}
+                <DataTable
+                  columns={dictColumns}
+                  data={dicts.data.map((d) => ({ ...d, _selected: d.code === selectedCode }))}
+                />
+              </div>
             )}
-          </section>
-        </div>
-      )}
+          </CardContent>
+        </Card>
+
+        {/* 字典项 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>字典项 {selectedCode ? `— ${selectedCode}` : ""}</CardTitle>
+            {canWrite && selectedCode && (
+              <Dialog open={itemDialogOpen} onOpenChange={(o) => { if (!o) resetItem(); else setItemDialogOpen(true); }}>
+                <DialogTrigger asChild>
+                  <Button size="sm" onClick={() => { setEditingItemId(null); setItemForm({ ...emptyItem, type_code: selectedCode }); setItemDialogOpen(true); }}>
+                    <PlusCircle size={13} />
+                    新建
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{editingItemId ? "编辑字典项" : "新建字典项"}</DialogTitle>
+                    <DialogDescription>为字典类型 {selectedCode} 添加项目。</DialogDescription>
+                  </DialogHeader>
+                  <DialogBody>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>标签 <span style={{ color: "var(--destructive)" }}>*</span></label>
+                        <Input placeholder="显示文本" value={itemForm.label} onChange={(e) => setItemForm({ ...itemForm, label: e.target.value })} />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>值 <span style={{ color: "var(--destructive)" }}>*</span></label>
+                        <Input placeholder="存储值" value={itemForm.value} onChange={(e) => setItemForm({ ...itemForm, value: e.target.value })} />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>状态</label>
+                        <NativeSelect value={itemForm.status ?? "active"} onChange={(e) => setItemForm({ ...itemForm, status: e.target.value })}>
+                          <option value="active">启用</option>
+                          <option value="disabled">停用</option>
+                        </NativeSelect>
+                      </div>
+                    </div>
+                  </DialogBody>
+                  <DialogFooter>
+                    <DialogClose asChild><Button variant="outline" size="sm" onClick={resetItem}>取消</Button></DialogClose>
+                    <Button size="sm" disabled={createItem.isPending || updateItem.isPending || !itemForm.label || !itemForm.value} onClick={submitItem}>
+                      {editingItemId ? "保存字典项" : "新建字典项"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!selectedCode && <p style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>请选择字典类型。</p>}
+            {selectedCode && items.isLoading && <Skeleton />}
+            {selectedCode && items.isError && (
+              <div role="alert" style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--destructive)" }}>
+                加载失败。<button onClick={() => items.refetch()} style={{ marginLeft: "4px", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>重试</button>
+              </div>
+            )}
+            {selectedCode && items.data && items.data.length === 0 && <p style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>暂无字典项。</p>}
+            {selectedCode && items.data && items.data.length > 0 && (
+              <DataTable columns={itemColumns} data={items.data} zebra />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+

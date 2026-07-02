@@ -1,0 +1,76 @@
+<!-- @dsCard group="Components" viewport="700x520" name="Forms & Inputs" subtitle="Button, Input, Select, Checkbox, Radio, Switch, FormField" -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <script src="../../_ds_bundle.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: var(--background); }
+    .grid { display: flex; flex-direction: column; gap: 20px; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .sec-label { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 8px; }
+    .cell { display: flex; flex-direction: column; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { Button, Input, Select, Checkbox, Switch, RadioGroup, FormField } = window.AtlasAdminDesignSystem_9d1c70;
+    const SearchIcon = () => <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5"/><path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>;
+    function Demo() {
+      const [sel, setSel] = React.useState('active');
+      const [chk, setChk] = React.useState(true);
+      const [sw, setSw] = React.useState(true);
+      const [radio, setRadio] = React.useState('dept');
+      return (
+        <div className="grid">
+          <div>
+            <div className="sec-label">Buttons</div>
+            <div className="row">
+              <Button>主要操作</Button>
+              <Button variant="secondary">次要</Button>
+              <Button variant="outline">描边</Button>
+              <Button variant="ghost">幽灵</Button>
+              <Button variant="destructive">删除</Button>
+              <Button variant="link">链接</Button>
+              <Button disabled>禁用</Button>
+              <Button size="sm">小号</Button>
+            </div>
+          </div>
+          <div>
+            <div className="sec-label">Inputs & Select</div>
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              <div style={{ width: 180 }}><FormField label="用户名" required><Input placeholder="请输入" /></FormField></div>
+              <div style={{ width: 180 }}><FormField label="搜索"><Input leading={<SearchIcon/>} placeholder="搜索用户" /></FormField></div>
+              <div style={{ width: 160 }}><FormField label="状态" error="必填项"><Select value={sel} onChange={setSel} options={[{value:'active',label:'启用'},{value:'disabled',label:'停用'}]} /></FormField></div>
+            </div>
+          </div>
+          <div className="row" style={{ gap: 40 }}>
+            <div className="cell">
+              <div className="sec-label">Checkbox</div>
+              <Checkbox checked={chk} onChange={setChk} label="记住登录" />
+              <Checkbox indeterminate label="用户管理（部分）" />
+              <Checkbox checked disabled label="已锁定" />
+            </div>
+            <div className="cell">
+              <div className="sec-label">Radio</div>
+              <RadioGroup value={radio} onChange={setRadio} options={[{value:'all',label:'全部数据'},{value:'dept',label:'本部门'},{value:'self',label:'仅本人'}]} />
+            </div>
+            <div className="cell">
+              <div className="sec-label">Switch</div>
+              <div className="row"><Switch checked={sw} onChange={setSw} /><span style={{fontFamily:'var(--font-sans)',fontSize:'var(--text-sm)',color:'var(--foreground)'}}>{sw?'启用':'停用'}</span></div>
+              <Switch size="sm" checked disabled />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

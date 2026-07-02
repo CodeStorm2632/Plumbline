@@ -27,11 +27,16 @@ try:  # 生产：真实国密（tongsuopy 1.0.x）
     from tongsuopy.crypto.ciphers import modes  # type: ignore
     from tongsuopy.crypto.ciphers.algorithms import SM4  # type: ignore
 
+    _probe = _ts_hashes.Hash(_ts_hashes.SM3())
+    _probe.update(b"")
+    _probe.finalize()
     _BACKEND = "tongsuopy"
-except Exception:  # 开发/CI：demo 降级
+except Exception as exc:  # 开发/CI：demo 降级
+    if os.getenv("ENV", "dev") == "prod":
+        raise RuntimeError("tongsuopy 不可用：生产环境拒绝降级到 DEMO 后端。") from exc
     _BACKEND = "demo"
     warnings.warn(
-        "tongsuopy 未安装，crypto 使用 DEMO 后端（不安全，仅供开发/测试）。"
+        "tongsuopy 不可用，crypto 使用 DEMO 后端（不安全，仅供开发/测试）。"
         "生产请 `uv sync --extra crypto`。",
         RuntimeWarning,
         stacklevel=2,

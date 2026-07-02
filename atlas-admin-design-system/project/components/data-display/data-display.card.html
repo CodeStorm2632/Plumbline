@@ -1,0 +1,78 @@
+<!-- @dsCard group="Components" viewport="700x600" name="Data Display & Table" subtitle="Badge, Tag, Avatar, Card, DataTable, Pagination" -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <script src="../../_ds_bundle.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: var(--background); }
+    .grid { display: flex; flex-direction: column; gap: 18px; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sec-label { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const NS = window.AtlasAdminDesignSystem_9d1c70;
+    const { Badge, Tag, Avatar, Card, CardHeader, CardBody, DataTable, Pagination, Button } = NS;
+    function Demo() {
+      const [sel, setSel] = React.useState([2]);
+      const [sk, setSk] = React.useState('name');
+      const [sd, setSd] = React.useState('asc');
+      const rows = [
+        { id: 1, name: '张伟', role: '系统管理员', tone: 'primary', on: true },
+        { id: 2, name: '李娜', role: '审计员', tone: 'info', on: true },
+        { id: 3, name: '王强', role: '运营', tone: 'neutral', on: false },
+      ];
+      const cols = [
+        { key: 'name', header: '用户', sortable: true, render: (r) => <span style={{display:'inline-flex',alignItems:'center',gap:8}}><Avatar name={r.name} size="sm"/>{r.name}</span> },
+        { key: 'role', header: '角色', render: (r) => <Tag tone={r.tone}>{r.role}</Tag> },
+        { key: 'status', header: '状态', render: (r) => <Badge tone={r.on?'success':'neutral'} dot>{r.on?'启用':'停用'}</Badge> },
+        { key: 'ops', header: '操作', align: 'right', render: () => <Button size="sm" variant="ghost">编辑</Button> },
+      ];
+      return (
+        <div className="grid">
+          <div>
+            <div className="sec-label">Badges — status labels</div>
+            <div className="row">
+              <Badge tone="success" dot>启用</Badge>
+              <Badge tone="neutral" dot>停用</Badge>
+              <Badge tone="danger" appearance="solid">失败</Badge>
+              <Badge tone="warning">待审核</Badge>
+              <Badge tone="info" appearance="outline">登录</Badge>
+              <Badge tone="primary">默认</Badge>
+            </div>
+          </div>
+          <div>
+            <div className="sec-label">Tags — roles</div>
+            <div className="row">
+              <Tag tone="primary">系统管理员</Tag>
+              <Tag tone="info" onRemove={()=>{}}>审计员</Tag>
+              <Tag tone="success">运营</Tag>
+              <Tag tone="neutral">访客</Tag>
+            </div>
+          </div>
+          <div>
+            <div className="sec-label">Table — sortable · selectable · zebra</div>
+            <Card>
+              <CardHeader title="用户列表" description="共 128 条" actions={<Button size="sm">新增用户</Button>} />
+              <DataTable columns={cols} data={rows} rowKey="id" zebra selectable
+                selectedKeys={sel} onSelectionChange={setSel}
+                sortKey={sk} sortDir={sd} onSort={(k,d)=>{setSk(k);setSd(d)}} />
+              <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
+                <Pagination page={1} pageSize={10} total={128} onPageChange={()=>{}} onPageSizeChange={()=>{}} />
+              </div>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>

@@ -7,6 +7,11 @@ vi.mock("./api", () => ({
   useRoles: vi.fn(() => ({ data: undefined, isLoading: true, isError: false })),
   useCreateRole: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useDeleteRole: () => ({ mutate: vi.fn(), isError: false }),
+  useAssignMenus: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("../sys_menu/api", () => ({
+  useMenus: vi.fn(() => ({ data: [], isLoading: false, isError: false })),
 }));
 
 import { useRoles } from "./api";
@@ -36,3 +41,4 @@ describe("SysRolePage 七态", () => {
     expect(screen.getByText("新建角色")).toBeInTheDocument();
   });
 });
+

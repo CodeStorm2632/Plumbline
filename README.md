@@ -44,6 +44,8 @@ docs/pipeline.md            三棒流水线 runbook（离线参考）
 
 ## 本地启动
 
+第一次使用建议先看 [小白使用手册](docs/beginner-manual.md)，里面有从 `make up` 启动、登录到常见问题的完整操作步骤。
+
 ### 前置依赖
 
 - Python 3.14 + [`uv`](https://docs.astral.sh/uv/)（后端包管理）

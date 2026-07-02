@@ -1,76 +1,141 @@
 import { useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 
-import { useAuditLogs, useLoginLogs } from "./api";
+import { Badge } from "../../components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { DataTable } from "../../components/ui/data-table";
+import { Skeleton } from "../../components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { useAuditLogs, useLoginLogs, type AuditLog, type LoginLog } from "./api";
 
-// 日志管理屏（SC-4，只读）。七态：加载/错误/空/无权限/缺失/只读/成功。
+// 日志管理屏（SC-4，只读）。七态：加载/错误/空/无权限/只读/成功。
 export function SysLogPage({ roles }: { roles: string[] }) {
-  const canRead = roles.includes("管理员") || roles.includes("审计员"); // sys:log:read
+  const canRead = roles.includes("管理员") || roles.includes("审计员");
   const [tab, setTab] = useState<"audit" | "login">("audit");
   const audit = useAuditLogs({});
   const loginLogs = useLoginLogs({});
 
   if (!canRead) {
-    return <p className="p-6 text-amber-700" role="alert">无访问日志的权限。</p>;
+    return (
+      <p className="p-6" role="alert" style={{ color: "var(--warning-foreground)", background: "var(--warning-subtle)", borderRadius: "var(--radius-md)", fontSize: "var(--text-sm)" }}>
+        无访问日志的权限。
+      </p>
+    );
   }
 
-  const active = tab === "audit" ? audit : loginLogs;
+  const auditColumns: ColumnDef<AuditLog>[] = [
+    {
+      accessorKey: "ts",
+      header: "时间",
+      cell: ({ row }) => (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
+          {row.original.ts}
+        </span>
+      ),
+    },
+    { accessorKey: "actor", header: "操作人" },
+    {
+      accessorKey: "action",
+      header: "动作",
+      cell: ({ row }) => <Badge tone="info">{row.original.action}</Badge>,
+    },
+    {
+      accessorKey: "entity_id",
+      header: "实体 ID",
+      cell: ({ row }) => (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
+          {row.original.entity_id}
+        </span>
+      ),
+    },
+  ];
+
+  const loginColumns: ColumnDef<LoginLog>[] = [
+    {
+      accessorKey: "ts",
+      header: "时间",
+      cell: ({ row }) => (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
+          {row.original.ts}
+        </span>
+      ),
+    },
+    { accessorKey: "username", header: "用户名" },
+    {
+      accessorKey: "success",
+      header: "结果",
+      cell: ({ row }) => (
+        <Badge tone={row.original.success ? "success" : "danger"} dot>
+          {row.original.success ? "成功" : "失败"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "detail",
+      header: "详情",
+      cell: ({ row }) => (
+        <span style={{ color: "var(--muted-foreground)" }}>{row.original.detail || "—"}</span>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold">日志管理</h1>
-        <button className={tab === "audit" ? "font-semibold underline" : "text-gray-600"}
-          onClick={() => setTab("audit")}>操作日志</button>
-        <button className={tab === "login" ? "font-semibold underline" : "text-gray-600"}
-          onClick={() => setTab("login")}>登录日志</button>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <h1 style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: "var(--font-bold)", letterSpacing: "var(--tracking-tight)" }}>
+        日志管理
+      </h1>
 
-      {active.isLoading && <p>加载中…</p>}
-      {active.isError && (
-        <div role="alert" className="text-red-600">
-          加载失败。<button className="underline" onClick={() => active.refetch()}>重试</button>
-        </div>
-      )}
-      {active.data && active.data.length === 0 && <p className="text-gray-500">暂无日志。</p>}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "audit" | "login")}>
+        <TabsList style={{ marginBottom: "16px" }}>
+          <TabsTrigger value="audit">操作日志</TabsTrigger>
+          <TabsTrigger value="login">登录日志</TabsTrigger>
+        </TabsList>
 
-      {tab === "audit" && audit.data && audit.data.length > 0 && (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">时间</th><th className="p-2">操作人</th>
-              <th className="p-2">动作</th><th className="p-2">实体</th>
-            </tr>
-          </thead>
-          <tbody>
-            {audit.data.map((r) => (
-              <tr key={r.id} className="border-b">
-                <td className="p-2">{r.ts}</td><td className="p-2">{r.actor}</td>
-                <td className="p-2">{r.action}</td><td className="p-2">{r.entity_id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <TabsContent value="audit">
+          <Card>
+            <CardHeader>
+              <CardTitle>操作日志</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {audit.isLoading && <Skeleton />}
+              {audit.isError && (
+                <div role="alert" style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--destructive)" }}>
+                  加载失败。<button onClick={() => audit.refetch()} style={{ marginLeft: "4px", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>重试</button>
+                </div>
+              )}
+              {audit.data && audit.data.length === 0 && (
+                <p style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>暂无日志。</p>
+              )}
+              {audit.data && audit.data.length > 0 && (
+                <DataTable columns={auditColumns} data={audit.data} zebra />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {tab === "login" && loginLogs.data && loginLogs.data.length > 0 && (
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">时间</th><th className="p-2">用户名</th>
-              <th className="p-2">结果</th><th className="p-2">详情</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loginLogs.data.map((r) => (
-              <tr key={r.id} className="border-b">
-                <td className="p-2">{r.ts}</td><td className="p-2">{r.username}</td>
-                <td className="p-2">{r.success ? "成功" : "失败"}</td>
-                <td className="p-2">{r.detail || "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+        <TabsContent value="login">
+          <Card>
+            <CardHeader>
+              <CardTitle>登录日志</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loginLogs.isLoading && <Skeleton />}
+              {loginLogs.isError && (
+                <div role="alert" style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--destructive)" }}>
+                  加载失败。<button onClick={() => loginLogs.refetch()} style={{ marginLeft: "4px", textDecoration: "underline", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>重试</button>
+                </div>
+              )}
+              {loginLogs.data && loginLogs.data.length === 0 && (
+                <p style={{ padding: "16px", fontSize: "var(--text-sm)", color: "var(--muted-foreground)", margin: 0 }}>暂无日志。</p>
+              )}
+              {loginLogs.data && loginLogs.data.length > 0 && (
+                <DataTable columns={loginColumns} data={loginLogs.data} zebra />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+

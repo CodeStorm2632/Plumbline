@@ -1,0 +1,39 @@
+/* ============================================================
+   Atlas Admin — Typography tokens
+   Inter for UI, JetBrains Mono for codes/logs/permission keys.
+   Compact scale tuned for dense data tables and forms.
+   ============================================================ */
+
+:root {
+  /* Families */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Size scale (compact — table/form density) */
+  --text-2xs: 0.6875rem;   /* 11px — dense meta, timestamps */
+  --text-xs: 0.75rem;      /* 12px — badges, captions, table meta */
+  --text-sm: 0.8125rem;    /* 13px — table cells, form labels, body-dense */
+  --text-base: 0.875rem;   /* 14px — default UI body */
+  --text-md: 0.9375rem;    /* 15px */
+  --text-lg: 1.0625rem;    /* 17px — card titles */
+  --text-xl: 1.25rem;      /* 20px — page section titles */
+  --text-2xl: 1.5rem;      /* 24px — page titles */
+  --text-3xl: 1.875rem;    /* 30px — auth / hero numbers */
+
+  /* Weights */
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line heights */
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.55;
+
+  /* Tracking */
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em;   /* uppercase eyebrows / table group labels */
+}

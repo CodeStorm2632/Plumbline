@@ -1,0 +1,6 @@
+<svg width="150" height="32" viewBox="0 0 150 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="7" fill="var(--primary, #3b4bd8)"></rect>
+  <path d="M16 6.5L23.5 11v10L16 25.5L8.5 21V11L16 6.5Z" stroke="white" stroke-width="1.6" stroke-linejoin="round" opacity="0.35"></path>
+  <path d="M16 11L20 13.3v4.4L16 20l-4-2.3v-4.4L16 11Z" fill="white"></path>
+  <text x="42" y="21" font-family="Inter, sans-serif" font-size="16" letter-spacing="-0.01em"><tspan font-weight="700" fill="var(--foreground, #1e2333)">Atlas</tspan><tspan font-weight="500" fill="var(--muted-foreground, #6b7280)"> Admin</tspan></text>
+</svg>

@@ -37,3 +37,17 @@ export function useDeleteRole() {
   });
 }
 
+/** 分配菜单/权限给角色 — FR-6.2.4 */
+export function useAssignMenus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ roleId, menuIds }: { roleId: string; menuIds: string[] }) =>
+      http<SysRole>({
+        url: `/api/sys/roles/${roleId}/menus`,
+        method: "POST",
+        data: { menu_ids: menuIds },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+

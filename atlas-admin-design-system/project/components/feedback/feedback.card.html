@@ -1,0 +1,67 @@
+<!-- @dsCard group="Components" viewport="700x460" name="Feedback" subtitle="Alert, Toast, Tooltip, Skeleton, EmptyState" -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="../../styles.css" />
+  <script src="../../_ds_bundle.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: var(--background); }
+    .grid { display: flex; flex-direction: column; gap: 14px; }
+    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    .sec-label { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 8px; }
+    .card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); padding: 14px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const NS = window.AtlasAdminDesignSystem_9d1c70;
+    const { Alert, Toast, Tooltip, Skeleton, EmptyState, Button } = NS;
+    function Demo() {
+      return (
+        <div className="grid">
+          <div>
+            <div className="sec-label">Alerts</div>
+            <div className="grid">
+              <Alert tone="warning" title="账户已锁定">连续 5 次密码错误，请 15 分钟后重试。</Alert>
+              <Alert tone="success" title="操作成功" onClose={()=>{}}>角色权限已保存。</Alert>
+            </div>
+          </div>
+          <div className="two">
+            <div>
+              <div className="sec-label">Toast</div>
+              <Toast tone="success" title="保存成功" description="用户信息已更新" onClose={()=>{}} />
+            </div>
+            <div>
+              <div className="sec-label">Tooltip · Skeleton</div>
+              <div className="card" style={{display:'flex',flexDirection:'column',gap:12}}>
+                <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                  <Tooltip label="导出为 CSV"><Button variant="outline" size="sm">悬停查看提示</Button></Tooltip>
+                </div>
+                <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                  <Skeleton circle height={32} />
+                  <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
+                    <Skeleton width="55%" height={12} />
+                    <Skeleton width="80%" height={10} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="sec-label">Empty State</div>
+            <div className="card">
+              <EmptyState title="暂无用户" description="点击右上角新增第一个用户" action={<Button size="sm">新增用户</Button>} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+  </script>
+</body>
+</html>
