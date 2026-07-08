@@ -162,3 +162,17 @@ def test_menu_update_invalidates_dynamic_role_cache(client):
     assert store.get(k_perms("dyn")) is None
     with Session(engine) as s:
         assert rbac.perms_for_roles(s, ["dyn"]) == set()
+
+
+def test_list_my_menus_filters_by_role(client):
+    admin_headers = _admin(client)
+    admin_rows = client.get("/api/sys/menus/my", headers=admin_headers)
+    assert admin_rows.status_code == 200
+    admin_names = {node["name"] for node in admin_rows.json()}
+    assert {"权限管理", "基础数据", "监控"}.issubset(admin_names)
+
+    auditor_headers = auth_header(client, "auditor", "Auditor@123")
+    auditor_rows = client.get("/api/sys/menus/my", headers=auditor_headers)
+    assert auditor_rows.status_code == 200
+    assert [x["name"] for x in auditor_rows.json()] == ["监控"]
+    assert [x["name"] for x in auditor_rows.json()[0]["children"]] == ["日志管理"]

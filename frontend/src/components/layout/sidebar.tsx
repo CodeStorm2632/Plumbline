@@ -30,11 +30,13 @@ function LeafItem({
   active,
   onNavigate,
   depth = 0,
+  collapsed = false,
 }: {
   item: NavLeaf;
   active: NavTab;
   onNavigate: (tab: NavTab) => void;
   depth?: number;
+  collapsed?: boolean;
 }) {
   const isActive = active === item.key;
   const [hovered, setHovered] = React.useState(false);
@@ -56,8 +58,9 @@ function LeafItem({
         gap: "9px",
         textDecoration: "none",
         height: "34px",
-        paddingLeft: depth > 0 ? `${8 + depth * 18}px` : "8px",
-        paddingRight: "8px",
+        justifyContent: collapsed ? "center" : "flex-start",
+        paddingLeft: collapsed ? "8px" : depth > 0 ? `${8 + depth * 18}px` : "8px",
+        paddingRight: collapsed ? "8px" : "8px",
         borderRadius: "var(--radius-md)",
         margin: "1px 0",
         fontFamily: "var(--font-sans)",
@@ -91,16 +94,18 @@ function LeafItem({
           }}
         />
       ) : null}
-      <span
-        style={{
-          flex: 1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {item.title}
-      </span>
+      {!collapsed && (
+        <span
+          style={{
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.title}
+        </span>
+      )}
     </a>
   );
 }
@@ -109,15 +114,45 @@ function BranchItem({
   item,
   active,
   onNavigate,
+  collapsed = false,
 }: {
   item: NavBranch;
   active: NavTab;
   onNavigate: (tab: NavTab) => void;
+  collapsed?: boolean;
 }) {
   const hasActiveChild = item.items.some((c) => c.key === active);
   const [open, setOpen] = React.useState(item.defaultOpen ?? hasActiveChild);
   const [hovered, setHovered] = React.useState(false);
   const Icon = item.icon;
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (item.items.length > 0) onNavigate(item.items[0].key);
+        }}
+        title={item.title}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          height: "34px",
+          padding: "0 8px",
+          margin: "1px 0",
+          border: "none",
+          background: hasActiveChild ? "var(--sidebar-accent)" : "transparent",
+          cursor: "pointer",
+          borderRadius: "var(--radius-md)",
+          color: hasActiveChild ? "var(--foreground)" : "var(--sidebar-foreground)",
+        }}
+      >
+        {Icon ? <Icon size={16} style={{ color: "var(--muted-foreground)" }} /> : <ChevronIcon open={false} />}
+      </button>
+    );
+  }
 
   return (
     <div>
@@ -164,6 +199,7 @@ function BranchItem({
               active={active}
               onNavigate={onNavigate}
               depth={1}
+              collapsed={collapsed}
             />
           ))}
         </div>
@@ -176,18 +212,20 @@ function NavItems({
   items,
   active,
   onNavigate,
+  collapsed = false,
 }: {
   items: NavItem[];
   active: NavTab;
   onNavigate: (tab: NavTab) => void;
+  collapsed?: boolean;
 }) {
   return (
     <>
       {items.map((item) =>
         item.kind === "branch" ? (
-          <BranchItem key={item.key} item={item} active={active} onNavigate={onNavigate} />
+          <BranchItem key={item.key} item={item} active={active} onNavigate={onNavigate} collapsed={collapsed} />
         ) : (
-          <LeafItem key={item.key} item={item} active={active} onNavigate={onNavigate} />
+          <LeafItem key={item.key} item={item} active={active} onNavigate={onNavigate} collapsed={collapsed} />
         )
       )}
     </>
@@ -199,13 +237,18 @@ interface SidebarProps {
   onNavigate: (tab: NavTab) => void;
   username: string;
   groups: NavGroup[];
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
+  collapsed?: boolean;
 }
 
-export function Sidebar({ activeTab, onNavigate, username, groups }: SidebarProps) {
+export function Sidebar({ activeTab, onNavigate, username, groups, loading, error, onRetry, collapsed }: SidebarProps) {
   return (
     <aside
       style={{
-        width: "var(--sidebar-w)",
+        width: collapsed ? "68px" : "var(--sidebar-w)",
+        transition: "width var(--dur-fast)",
         flexShrink: 0,
         background: "var(--sidebar)",
         borderRight: "1px solid var(--sidebar-border)",
@@ -252,6 +295,7 @@ export function Sidebar({ activeTab, onNavigate, username, groups }: SidebarProp
             fontWeight: "var(--font-bold)",
             letterSpacing: "var(--tracking-tight)",
             color: "var(--sidebar-foreground)",
+            display: collapsed ? "none" : "inline",
           }}
         >
           Plumbline
@@ -269,9 +313,33 @@ export function Sidebar({ activeTab, onNavigate, username, groups }: SidebarProp
           gap: "10px",
         }}
       >
+        {loading && (
+          <div style={{ padding: "0 14px", color: "var(--muted-foreground)", fontSize: "var(--text-sm)" }}>
+            正在加载菜单...
+          </div>
+        )}
+        {error && (
+          <div style={{ padding: "0 14px", color: "var(--destructive)", fontSize: "var(--text-sm)" }}>
+            菜单加载失败。
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                marginLeft: "6px",
+                border: "none",
+                background: "transparent",
+                color: "inherit",
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+            >
+              重试
+            </button>
+          </div>
+        )}
         {groups.map((g, gi) => (
           <div key={gi}>
-            {g.title && (
+            {g.title && !collapsed && (
               <div
                 style={{
                   fontFamily: "var(--font-sans)",
@@ -286,7 +354,7 @@ export function Sidebar({ activeTab, onNavigate, username, groups }: SidebarProp
                 {g.title}
               </div>
             )}
-            <NavItems items={g.items} active={activeTab} onNavigate={onNavigate} />
+            <NavItems items={g.items} active={activeTab} onNavigate={onNavigate} collapsed={collapsed} />
           </div>
         ))}
       </nav>
@@ -328,11 +396,12 @@ export function Sidebar({ activeTab, onNavigate, username, groups }: SidebarProp
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              display: collapsed ? "none" : "block",
             }}
           >
             {username}
           </div>
-          <div style={{ fontSize: "var(--text-2xs)", color: "var(--muted-foreground)" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--muted-foreground)", display: collapsed ? "none" : "block" }}>
             系统管理员
           </div>
         </div>

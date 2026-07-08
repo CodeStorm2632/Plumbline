@@ -1,13 +1,17 @@
 import * as React from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { NAV_GROUPS, type NavTab } from "./nav-config";
+import type { NavGroup, NavTab } from "./nav-config";
 
 interface AppShellProps {
   activeTab: NavTab;
   onNavigate: (tab: NavTab) => void;
   username: string;
   onLogout: () => void;
+  groups: NavGroup[];
+  navLoading?: boolean;
+  navError?: boolean;
+  onRetryNav?: () => void;
   children: React.ReactNode;
 }
 
@@ -16,8 +20,14 @@ export function AppShell({
   onNavigate,
   username,
   onLogout,
+  groups,
+  navLoading,
+  navError,
+  onRetryNav,
   children,
 }: AppShellProps) {
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+
   return (
     <div
       style={{
@@ -32,7 +42,11 @@ export function AppShell({
         activeTab={activeTab}
         onNavigate={onNavigate}
         username={username}
-        groups={NAV_GROUPS}
+        groups={groups}
+        loading={navLoading}
+        error={navError}
+        onRetry={onRetryNav}
+        collapsed={sidebarCollapsed}
       />
       <div
         style={{
@@ -42,7 +56,12 @@ export function AppShell({
           flexDirection: "column",
         }}
       >
-        <Topbar activeTab={activeTab} onLogout={onLogout} />
+        <Topbar
+          activeTab={activeTab}
+          onLogout={onLogout}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+        />
         <main
           style={{
             flex: 1,

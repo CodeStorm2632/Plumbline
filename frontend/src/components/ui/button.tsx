@@ -20,9 +20,11 @@ const buttonVariants = cva(
         link: "text-primary hover:underline underline-offset-3 border-none h-auto px-0",
       },
       size: {
-        sm: "h-[var(--control-h-sm)] px-2.5 text-[var(--text-xs)]",
-        md: "h-[var(--control-h-md)] px-3.5 text-[var(--text-sm)]",
-        lg: "h-[var(--control-h-lg)] px-5 text-[var(--text-base)]",
+        // 注意用 text-[length:...] 显式标注字号，否则 tailwind-merge 会把它与
+        // 变体里的 text-primary-foreground（文字色）当作同组冲突而丢掉颜色，导致按钮文字变暗。
+        sm: "h-[var(--control-h-sm)] px-2.5 text-[length:var(--text-xs)]",
+        md: "h-[var(--control-h-md)] px-3.5 text-[length:var(--text-sm)]",
+        lg: "h-[var(--control-h-lg)] px-5 text-[length:var(--text-base)]",
         icon: "h-[var(--control-h-md)] w-[var(--control-h-md)] p-0",
         "icon-sm": "h-[var(--control-h-sm)] w-[var(--control-h-sm)] p-0",
       },

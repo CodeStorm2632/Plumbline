@@ -3,7 +3,7 @@ id: UID-SC-sys-menu
 screen: SC-5 菜单管理
 title: 菜单管理 · UI 设计说明
 source_prd: PRD-sys-admin @ v1.0
-traces_to: [FR-6.3.1, FR-6.3.2, FR-6.3.3, FR-6.3.4, NFR-6.1, NFR-6.3, NFR-6.4]
+traces_to: [FR-6.3.1, FR-6.3.2, FR-6.3.3, FR-6.3.4, FR-6.3.5, NFR-6.1, NFR-6.3, NFR-6.4]
 version: v0.1
 status: draft
 stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, table: TanStack Table, ui: Shadcn/UI, css: Tailwind4, schema: Zod4 }
@@ -28,6 +28,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 | 新建/编辑菜单节点 | `[FR-6.3.2]` |
 | 级联软删除菜单节点 | `[FR-6.3.3]` `[NFR-6.1]` |
 | 维护按钮权限码 | `[FR-6.3.4]` `[NFR-6.3]` |
+| 左侧导航按角色菜单授权动态渲染 | `[FR-6.3.5]` `[NFR-6.3]` |
 
 ## 3 信息架构 / 布局（低保真）
 
@@ -70,6 +71,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 | UI 元素 | 来源（接口/字段） | 回指 |
 |---------|------------------|------|
 | 菜单树 | `GET /api/sys/menus` → `id,code,name,parent_id,type,perm_code,path,icon,order_no,children` | `[FR-6.3.1]` |
+| 左侧导航菜单 | `GET /api/sys/menus/my`（当前用户；仅目录/菜单节点） | `[FR-6.3.5]` |
 | 新建 | `POST /api/sys/menus` `{code,name,parent_id,type,perm_code,path,icon,order_no}` | `[FR-6.3.2]` `[FR-6.3.4]` |
 | 编辑 | `PUT /api/sys/menus/{id}` | `[FR-6.3.2]` `[FR-6.3.4]` |
 | 删除 | `DELETE /api/sys/menus/{id}`（级联软删） | `[FR-6.3.3]` `[NFR-6.1]` |
@@ -80,6 +82,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 - **排序**：同级节点按 `order_no` 升序展示。`[FR-6.3.1]`
 - **级联软删**：删除父节点时，后端将其全部子节点标记 `is_deleted=1`。`[FR-6.3.3]`
 - **权限缓存**：修改按钮权限码或删除含按钮权限的节点后，后端失效权限缓存。`[NFR-6.3]`
+- **导航一致性**：菜单树授权变更后，左侧导航刷新应与角色可见菜单一致。`[FR-6.3.5]` `[NFR-6.3]`
 
 ## 8 边界与异常
 

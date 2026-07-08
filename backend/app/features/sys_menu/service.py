@@ -9,7 +9,7 @@ from sqlmodel import select
 
 from app.core.audit.service import write_audit
 from app.core.models import not_deleted, stamp_create, stamp_update
-from app.core.rbac.models import Menu
+from app.core.rbac.models import Menu, Role, RoleMenu
 from app.core.security.rbac import invalidate_perms
 from app.features.sys_menu.schemas import MenuCreate, MenuOut, MenuUpdate
 
@@ -66,9 +66,48 @@ def _all_descendants(session, parent_id: str) -> list[Menu]:
     return result
 
 
+def _expand_with_ancestors(rows: list[Menu], selected_ids: set[str]) -> set[str]:
+    by_id = {m.id: m for m in rows}
+    expanded = set(selected_ids)
+    queue = list(selected_ids)
+    while queue:
+        current = queue.pop()
+        node = by_id.get(current)
+        if not node or not node.parent_id or node.parent_id in expanded:
+            continue
+        expanded.add(node.parent_id)
+        queue.append(node.parent_id)
+    return expanded
+
+
 def list_menus(session) -> list[MenuOut]:
     rows = session.exec(select(Menu).where(not_deleted(Menu))).all()
     return _build_tree(list(rows))
+
+
+def list_menus_for_roles(session, *, roles: list[str], include_buttons: bool = False) -> list[MenuOut]:
+    """按角色授权返回菜单树（默认过滤 button，用于左侧导航）。"""
+    if not roles:
+        return []
+
+    role_ids = list(
+        session.exec(select(Role.id).where(Role.code.in_(roles), not_deleted(Role))).all()
+    )
+    if not role_ids:
+        return []
+
+    granted_menu_ids = set(
+        session.exec(select(RoleMenu.menu_id).where(RoleMenu.role_id.in_(role_ids))).all()
+    )
+    if not granted_menu_ids:
+        return []
+
+    all_rows = list(session.exec(select(Menu).where(not_deleted(Menu))).all())
+    visible_ids = _expand_with_ancestors(all_rows, granted_menu_ids)
+    visible_rows = [m for m in all_rows if m.id in visible_ids]
+    if not include_buttons:
+        visible_rows = [m for m in visible_rows if m.type != "button"]
+    return _build_tree(visible_rows)
 
 
 def create_menu(session, *, actor: str, body: MenuCreate) -> MenuOut:

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from app.core.deps import CurrentUser, get_session, require_perms
+from app.core.deps import CurrentUser, get_current_user, get_session, require_perms
 from app.features.sys_menu import service
 from app.features.sys_menu.schemas import MenuCreate, MenuOut, MenuUpdate
 
@@ -20,6 +20,16 @@ WRITE = require_perms("sys:menu:write")
 )
 def list_menus(session=Depends(get_session), user: CurrentUser = Depends(READ)):
     return service.list_menus(session)
+
+
+@router.get(
+    "/my",
+    response_model=list[MenuOut],
+    operation_id="listMySysMenus",
+    openapi_extra={"x-trace": ["FR-6.3.5", "NFR-6.3"]},
+)
+def list_my_menus(session=Depends(get_session), user: CurrentUser = Depends(get_current_user)):
+    return service.list_menus_for_roles(session, roles=user.roles)
 
 
 @router.post(

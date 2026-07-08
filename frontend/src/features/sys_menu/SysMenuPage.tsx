@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Edit2, PlusCircle, Trash2 } from "lucide-react";
+import { ChevronRight, Edit2, PlusCircle, Trash2 } from "lucide-react";
 
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -29,16 +29,59 @@ import {
   useUpdateMenu,
 } from "./api";
 
-function flattenMenus(items: SysMenu[], depth = 0): Array<SysMenu & { depth: number }> {
+type FlatMenu = SysMenu & { depth: number; hasChildren: boolean; open: boolean };
+
+// 仅展开的节点才向下展平（收起的父节点隐藏其子树），并标注层级/是否有子/是否展开。
+function flattenVisible(items: SysMenu[], collapsed: Set<string>, depth = 0): FlatMenu[] {
+  return items.flatMap((item) => {
+    const children = item.children ?? [];
+    const hasChildren = children.length > 0;
+    const open = hasChildren && !collapsed.has(item.id);
+    const node: FlatMenu = { ...item, depth, hasChildren, open };
+    return open ? [node, ...flattenVisible(children, collapsed, depth + 1)] : [node];
+  });
+}
+
+// 收集所有可展开（含子节点）的节点 id，用于「展开/折叠全部」。
+function collectParentIds(items: SysMenu[]): string[] {
+  return items.flatMap((item) => {
+    const children = item.children ?? [];
+    return children.length ? [item.id, ...collectParentIds(children)] : [];
+  });
+}
+
+// 展平全部节点（忽略折叠），用于父节点下拉：按层级缩进展示，供选择而非手填编码。
+type ParentOption = { id: string; name: string; type: string; depth: number };
+function flattenForParent(items: SysMenu[], depth = 0): ParentOption[] {
   return items.flatMap((item) => [
-    { ...item, depth },
-    ...flattenMenus(item.children ?? [], depth + 1),
+    { id: item.id, name: item.name, type: item.type, depth },
+    ...flattenForParent(item.children ?? [], depth + 1),
   ]);
 }
 
-const emptyForm: CreateMenuInput = { code: "", name: "", type: "menu", order_no: 0 };
+// 收集某节点及其所有子孙 id：编辑时排除自身与子树，避免选成自己的父节点（成环）。
+function collectSubtreeIds(items: SysMenu[], rootId: string): Set<string> {
+  const ids = new Set<string>();
+  const walk = (nodes: SysMenu[], inside: boolean) => {
+    for (const n of nodes) {
+      const within = inside || n.id === rootId;
+      if (within) ids.add(n.id);
+      walk(n.children ?? [], within);
+    }
+  };
+  walk(items, false);
+  return ids;
+}
 
-type FlatMenu = SysMenu & { depth: number };
+// 各类型允许的父节点类型（体现 目录 > 菜单 > 按钮 的层级约束）：
+// 目录可作顶级或放在目录下；菜单只能放目录下；按钮只能放菜单下。
+const PARENT_TYPES: Record<string, string[]> = {
+  dir: ["dir"],
+  menu: ["dir"],
+  button: ["menu"],
+};
+
+const emptyForm: CreateMenuInput = { code: "", name: "", type: "menu", order_no: 0 };
 
 // 菜单管理屏（SC-5）。七态：加载/错误/空/无权限/缺失/越权/成功。
 export function SysMenuPage({ roles }: { roles: string[] }) {
@@ -51,6 +94,7 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CreateMenuInput>(emptyForm);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
   if (!canRead) {
     return (
@@ -60,7 +104,40 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
     );
   }
 
-  const rows = menus.data ? flattenMenus(menus.data) : [];
+  const rows = menus.data ? flattenVisible(menus.data, collapsed) : [];
+  const parentIds = menus.data ? collectParentIds(menus.data) : [];
+  const allExpanded = collapsed.size === 0;
+  const toggleNode = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => setCollapsed(allExpanded ? new Set(parentIds) : new Set());
+
+  // 父节点候选：按类型约束（目录>菜单>按钮），编辑时排除自身及子树防成环。
+  const allNodesFlat = menus.data ? flattenForParent(menus.data) : [];
+  const excludedIds = editingId ? collectSubtreeIds(menus.data ?? [], editingId) : null;
+  const parentOptions = allNodesFlat.filter(
+    (n) => (PARENT_TYPES[form.type] ?? []).includes(n.type) && !excludedIds?.has(n.id),
+  );
+  const allowTopLevel = form.type === "dir"; // 仅目录可作为顶级节点
+  // 切换类型时，若原父节点在新类型下不再合法，则重置（顶级或强制重选）。
+  const onTypeChange = (nextType: string) => {
+    const allowed = PARENT_TYPES[nextType] ?? [];
+    const keepParent = form.parent_id
+      ? allNodesFlat.some(
+          (n) => n.id === form.parent_id && allowed.includes(n.type) && !excludedIds?.has(n.id),
+        )
+      : false;
+    setForm({
+      ...form,
+      type: nextType,
+      parent_id: keepParent ? form.parent_id : null,
+      perm_code: nextType !== "button" ? null : form.perm_code,
+    });
+  };
 
   const reset = () => {
     setEditingId(null);
@@ -102,25 +179,59 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
     {
       id: "name",
       header: "名称 / 层级",
-      cell: ({ row }) => (
-        <span
-          style={{
-            paddingLeft: `${row.original.depth * 20}px`,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          {row.original.depth > 0 && (
-            <span style={{ width: "12px", height: "1px", background: "var(--border-strong)", display: "inline-block", flexShrink: 0 }} />
-          )}
-          {row.original.name}
-        </span>
-      ),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const m = row.original;
+        return (
+          <span
+            style={{
+              paddingLeft: `${m.depth * 20}px`,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            {m.hasChildren ? (
+              <button
+                type="button"
+                onClick={() => toggleNode(m.id)}
+                aria-label={m.open ? "折叠" : "展开"}
+                aria-expanded={m.open}
+                title={m.open ? "折叠" : "展开"}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "18px",
+                  height: "18px",
+                  padding: 0,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: "var(--muted-foreground)",
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronRight
+                  size={14}
+                  style={{
+                    transform: m.open ? "rotate(90deg)" : "none",
+                    transition: "transform var(--dur-fast)",
+                  }}
+                />
+              </button>
+            ) : (
+              <span style={{ width: "18px", flexShrink: 0, display: "inline-block" }} />
+            )}
+            {m.name}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "type",
       header: "类型",
+      enableSorting: false,
       cell: ({ row }) => (
         <Badge tone={TYPE_TONES[row.original.type] ?? "neutral"}>
           {TYPE_LABELS[row.original.type] ?? row.original.type}
@@ -130,6 +241,7 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
     {
       accessorKey: "path",
       header: "路径",
+      enableSorting: false,
       cell: ({ row }) => (
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--muted-foreground)" }}>
           {row.original.path || "—"}
@@ -139,6 +251,7 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
     {
       accessorKey: "perm_code",
       header: "权限码",
+      enableSorting: false,
       cell: ({ row }) => {
         const missing = !row.original.perm_code && row.original.type === "button";
         return missing ? (
@@ -184,7 +297,13 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
 
       <Card>
         <CardHeader>
-          <span />
+          {rows.length > 0 && parentIds.length > 0 ? (
+            <Button variant="outline" size="sm" onClick={toggleAll}>
+              {allExpanded ? "折叠全部" : "展开全部"}
+            </Button>
+          ) : (
+            <span />
+          )}
           {canWrite && (
             <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) reset(); else setDialogOpen(true); }}>
               <DialogTrigger asChild>
@@ -227,13 +346,7 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
                       </label>
                       <NativeSelect
                         value={form.type}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            type: e.target.value,
-                            perm_code: e.target.value !== "button" ? null : form.perm_code,
-                          })
-                        }
+                        onChange={(e) => onTypeChange(e.target.value)}
                       >
                         <option value="dir">目录</option>
                         <option value="menu">菜单</option>
@@ -242,13 +355,25 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>
-                        父节点 ID
+                        父节点
                       </label>
-                      <Input
-                        placeholder="留空为顶级节点"
+                      <NativeSelect
                         value={form.parent_id ?? ""}
                         onChange={(e) => setForm({ ...form, parent_id: e.target.value || null })}
-                      />
+                      >
+                        {allowTopLevel ? (
+                          <option value="">（顶级节点）</option>
+                        ) : (
+                          <option value="" disabled>
+                            {form.type === "button" ? "请选择所属菜单" : "请选择所属目录"}
+                          </option>
+                        )}
+                        {parentOptions.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {"　".repeat(n.depth) + n.name + (n.type === "dir" ? "（目录）" : "（菜单）")}
+                          </option>
+                        ))}
+                      </NativeSelect>
                     </div>
                     <div>
                       <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: "var(--font-medium)", marginBottom: "6px" }}>
@@ -283,7 +408,13 @@ export function SysMenuPage({ roles }: { roles: string[] }) {
                   </DialogClose>
                   <Button
                     size="sm"
-                    disabled={create.isPending || update.isPending || !form.code || !form.name}
+                    disabled={
+                      create.isPending ||
+                      update.isPending ||
+                      !form.code ||
+                      !form.name ||
+                      (!allowTopLevel && !form.parent_id)
+                    }
                     onClick={submit}
                   >
                     {create.isPending || update.isPending ? "提交中…" : editingId ? "保存菜单" : "新建节点"}

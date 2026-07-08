@@ -100,6 +100,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 - **6.3.2** 新建/编辑菜单节点（name、path、icon、order、parent）。`[FR-6.3.2]`
 - **6.3.3** 软删除菜单节点（含子节点级联标记）。`[FR-6.3.3]` `[NFR-6.1]`
 - **6.3.4** 维护按钮节点的权限码 `perm_code`（如 `sys:user:write`）。`[FR-6.3.4]` `[NFR-6.3]`
+- **6.3.5** 左侧导航按当前用户角色授权的菜单树动态渲染（仅目录/菜单节点）。`[FR-6.3.5]` `[NFR-6.3]`
 
 ### 6.4 日志管理
 
@@ -134,6 +135,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 ## 8 接口需求（概要）
 
 - 用户/角色/菜单/字典 CRUD：`/api/sys/*`，写操作 `require_perms("sys:<资源>:write")`，软删走 PATCH/DELETE 但仅置标记。
+- 当前用户可见导航菜单：`GET /api/sys/menus/my`，按角色授权返回目录/菜单树（过滤按钮节点）。
 - 日志查询：`/api/sys/logs/audit`、`/api/sys/logs/login`，只读，`require_perms("sys:log:read")`。
 - 传输信封：`GET /api/crypto/pubkey` 下发 SM2 公钥；敏感接口入参解信封、出参脱敏。
 - 所有业务接口带 `operation_id` 与 `openapi_extra={"x-trace":[FR-6.*]}`。
@@ -144,6 +146,7 @@ stack: { framework: React19+TS, router: TanStack Router, data: TanStack Query, t
 - 删除后数据库记录仍在、仅 `is_deleted=1`，列表不展示（回指 `[FR-6.1.6]` `[NFR-6.1]`）。
 - 手机号/邮箱在库为 SM4 密文、接口出参为掩码（回指 `[NFR-6.5]` `[NFR-6.6]`）。
 - 角色授权变更后，权限缓存即时失效、守卫按新权限放行/拒绝（回指 `[FR-6.2.4]` `[NFR-6.3]`）。
+- 左侧导航与角色菜单授权一致：管理员显示全量导航，审计员仅显示日志相关导航（回指 `[FR-6.3.5]` `[NFR-6.3]`）。
 
 ## 10 里程碑与迭代计划
 

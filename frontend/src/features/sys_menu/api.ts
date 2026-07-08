@@ -30,11 +30,20 @@ export type CreateMenuInput = {
 export type UpdateMenuInput = Omit<CreateMenuInput, "code">;
 
 const KEY = ["sys-menus"];
+const MY_KEY = ["sys-menus", "my"];
 
 export function useMenus() {
   return useQuery({
     queryKey: KEY,
     queryFn: ({ signal }) => http<SysMenu[]>({ url: "/api/sys/menus", method: "GET", signal }),
+  });
+}
+
+export function useMyMenus(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: MY_KEY,
+    enabled: options?.enabled,
+    queryFn: ({ signal }) => http<SysMenu[]>({ url: "/api/sys/menus/my", method: "GET", signal }),
   });
 }
 

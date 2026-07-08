@@ -1026,6 +1026,57 @@
         ]
       }
     },
+    "/api/sys/menus/my": {
+      "get": {
+        "tags": [
+          "sys_menu"
+        ],
+        "summary": "List My Menus",
+        "operationId": "listMySysMenus",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuOut"
+                  },
+                  "title": "Response Listmysysmenus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-trace": [
+          "FR-6.3.5",
+          "NFR-6.3"
+        ]
+      }
+    },
     "/api/sys/menus/{menu_id}": {
       "put": {
         "tags": [
